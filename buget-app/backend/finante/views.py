@@ -287,12 +287,23 @@ def economii_vacanta_sumar(request):
         or 0
     )
 
-    cheltuite = (
+    cheltuite_legacy = (
         CheltuialaVariabila.objects.filter(
-            user=request.user, categorie="vacanta"
+            user=request.user,
+            categorie="vacanta_cheltuita",
         ).aggregate(total=Sum("suma"))["total"]
         or 0
     )
+
+    cheltuite_v2 = (
+        EconomieVacanta.objects.filter(
+            user=request.user,
+            tip="cheltuieli",
+        ).aggregate(total=Sum("suma"))["total"]
+        or 0
+    )
+
+    cheltuite = cheltuite_legacy + cheltuite_v2
 
     return Response(
         {

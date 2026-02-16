@@ -26,6 +26,7 @@ export default function Economii() {
     const [venituri, setVenituri] = useState([]);
     const [fixe, setFixe] = useState([]);
     const [variabile, setVariabile] = useState([]);
+    const [miscariVacanta, setMiscariVacanta] = useState([]);
 
     const [sumaVacanta, setSumaVacanta] = useState("");
     const [dataVacanta, setDataVacanta] = useState(
@@ -42,12 +43,17 @@ export default function Economii() {
     }, []);
 
     const loadData = async () => {
-        const v = await api.get("venituri/");
-        const f = await api.get("cheltuieli-fixe/");
-        const va = await api.get("cheltuieli-variabile/");
+        const [v, f, va, ev] = await Promise.all([
+            api.get("venituri/"),
+            api.get("cheltuieli-fixe/"),
+            api.get("cheltuieli-variabile/"),
+            api.get("economii-vacanta/"),
+        ]);
+
         setVenituri(v.data);
         setFixe(f.data);
         setVariabile(va.data);
+        setMiscariVacanta(ev.data);
     };
 
     // ==========================
@@ -113,6 +119,9 @@ export default function Economii() {
 
     const totalCheltuit = variabile
         .filter(v => v.categorie === "vacanta_cheltuita")
+        .reduce((s, v) => s + Number(v.suma), 0)
+        + miscariVacanta
+            .filter(v => v.tip === "cheltuieli")
         .reduce((s, v) => s + Number(v.suma), 0);
 
     const totalRamasVacanta = totalVacanta - totalCheltuit;
@@ -134,8 +143,8 @@ export default function Economii() {
     const adaugaCheltuialaVacanta = async () => {
         if (!sumaCheltuialaVacanta) return;
 
-        await api.post("cheltuieli-variabile/", {
-            categorie: "vacanta_cheltuita",
+        await api.post("economii-vacanta/", {
+            tip: "cheltuieli",
             suma: sumaCheltuialaVacanta,
             moneda: "EUR",
             data: dataCheltuialaVacanta
@@ -241,8 +250,8 @@ export default function Economii() {
                     Adaugă cheltuială
                 </button>
 
-                {variabile
-                    .filter(v => v.categorie === "vacanta_cheltuita")
+                {[...variabile.filter(v => v.categorie === "vacanta_cheltuita"), ...miscariVacanta.filter(v => v.tip === "cheltuieli")]
+                    .sort((a, b) => new Date(b.data) - new Date(a.data))
                     .map((c, index) => (
                         <div key={index} style={styles.row}>
                             <span>{c.data}</span>
