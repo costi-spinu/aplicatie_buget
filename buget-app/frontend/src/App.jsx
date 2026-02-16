@@ -8,7 +8,6 @@ import ResetParola from "./pages/ResetParola";
 
 import Venit from "./pages/Venit";
 import Cheltuieli from "./pages/Cheltuieli";
-import Grafice from "./pages/Grafice";
 import Economii from "./pages/Economii";
 import AdminPanel from "./pages/AdminPanel";
 import DiagramaLunara from "./pages/DiagramaLunara";
@@ -142,7 +141,6 @@ function App() {
           <div style={styles.pageContent}>
             {activePage === "venit" && <Venit />}
             {activePage === "cheltuieli" && <Cheltuieli />}
-            {activePage === "grafice" && <Grafice />}
             {activePage === "economii" && <Economii />}
             {activePage === "diagrama" && <DiagramaLunara />}
             {activePage === "fonduri" && <Fonduri />}

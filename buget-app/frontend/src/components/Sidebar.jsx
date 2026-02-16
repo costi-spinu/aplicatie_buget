@@ -13,7 +13,6 @@ export default function Sidebar({
     const navItems = [
         { key: "venit", label: "Venit / Istoric venit" },
         { key: "cheltuieli", label: "Cheltuieli" },
-        { key: "grafice", label: "Grafic cheltuieli" },
         { key: "economii", label: "Economii / Vacanță" },
         { key: "diagrama", label: "Diagramă luna în curs" },
         { key: "fonduri", label: "Fonduri investiții" },

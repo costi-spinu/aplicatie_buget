@@ -1,25 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Line } from "react-chartjs-2";
-import {
-    Chart as ChartJS,
-    LineElement,
-    PointElement,
-    CategoryScale,
-    LinearScale,
-    Tooltip,
-    Legend,
-} from "chart.js";
 import api from "../services/api";
 import styles from "../styles/iosStyles";
-
-ChartJS.register(
-    LineElement,
-    PointElement,
-    CategoryScale,
-    LinearScale,
-    Tooltip,
-    Legend
-);
 
 const RON_TO_EUR_FALLBACK = 0.2;
 
@@ -49,7 +30,7 @@ const toDateOnly = (value) => {
 const round2 = (value) => Math.round(value * 100) / 100;
 
 export default function Venit() {
-    const [activeTab, setActiveTab] = useState("form"); // form | history
+    const [activeTab, setActiveTab] = useState("form");
 
     const [suma, setSuma] = useState("");
     const [currentUser, setCurrentUser] = useState(null);
@@ -65,7 +46,7 @@ export default function Venit() {
     const [ronToEurRate, setRonToEurRate] = useState(RON_TO_EUR_FALLBACK);
     const [rateSource, setRateSource] = useState("fallback");
 
-    const [chartData, setChartData] = useState(null);
+    const [statusRows, setStatusRows] = useState([]);
 
     const cycleRange = useMemo(() => getCurrentCycleRange(), []);
 
@@ -74,20 +55,12 @@ export default function Venit() {
 
     const fetchExchangeRate = async () => {
         try {
-            const response = await fetch(
-                "https://api.frankfurter.app/latest?from=RON&to=EUR"
-            );
-
-            if (!response.ok) {
-                throw new Error("Nu s-a putut prelua cursul valutar");
-            }
+            const response = await fetch("https://api.frankfurter.app/latest?from=RON&to=EUR");
+            if (!response.ok) throw new Error("Nu s-a putut prelua cursul valutar");
 
             const dataRes = await response.json();
             const rate = Number(dataRes?.rates?.EUR);
-
-            if (!rate || Number.isNaN(rate)) {
-                throw new Error("Curs valutar invalid");
-            }
+            if (!rate || Number.isNaN(rate)) throw new Error("Curs valutar invalid");
 
             setRonToEurRate(rate);
             setRateSource("live");
@@ -109,10 +82,7 @@ export default function Venit() {
                 const incomeDate = toDateOnly(item.data);
                 return incomeDate >= cycleRange.start && incomeDate <= cycleRange.end;
             })
-            .reduce((sum, item) => {
-                const converted = convertToEur(item.suma, item.moneda);
-                return sum + converted;
-            }, 0);
+            .reduce((sum, item) => sum + convertToEur(item.suma, item.moneda), 0);
 
         return round2(totalCycle);
     };
@@ -120,7 +90,6 @@ export default function Venit() {
     const loadData = async () => {
         try {
             const [list, meRes] = await Promise.all([api.get("venituri/"), api.get("me/")]);
-
             setVenituri(list.data);
             setTotal(calculateCurrentCycleTotal(list.data));
             setCurrentUser(meRes.data);
@@ -133,25 +102,8 @@ export default function Venit() {
         try {
             const res = await api.get("venit/status/");
             const labels = [...res.data.labels].reverse();
-            const values = [...res.data.data].reverse();
-
-            setChartData({
-                labels,
-                datasets: [
-                    {
-                        label: "Venit lunar (EUR)",
-                        data: values,
-                        borderWidth: 3,
-                        tension: 0.35,
-                        pointHoverRadius: 7,
-                        fill: true,
-                        borderColor: "#34C759",
-                        backgroundColor: "rgba(52,199,89,0.18)",
-                        pointBackgroundColor: "#34C759",
-                        pointRadius: 4,
-                    },
-                ],
-            });
+            const dataValues = [...res.data.data].reverse();
+            setStatusRows(labels.map((label, idx) => ({ label, value: Number(dataValues[idx]) })));
         } catch (error) {
             console.error("Eroare status venit:", error);
         }
@@ -178,18 +130,11 @@ export default function Venit() {
 
         try {
             const sumaInEur = round2(convertToEur(suma, moneda));
+            await api.post("venituri/", { suma: sumaInEur, moneda: "EUR", data });
 
-            await api.post("venituri/", {
-                suma: sumaInEur,
-                moneda: "EUR",
-                data,
-            });
-
-            if (moneda === "RON") {
-                setMsg(`✔ Venit adăugat (${suma} RON ≈ ${sumaInEur} EUR)`);
-            } else {
-                setMsg("✔ Venit adăugat");
-            }
+            setMsg(moneda === "RON"
+                ? `✔ Venit adăugat (${suma} RON ≈ ${sumaInEur} EUR)`
+                : "✔ Venit adăugat");
 
             resetForm();
             loadData();
@@ -204,18 +149,11 @@ export default function Venit() {
 
         try {
             const sumaInEur = round2(convertToEur(suma, moneda));
+            await api.put(`venituri/${editId}/`, { suma: sumaInEur, moneda: "EUR", data });
 
-            await api.put(`venituri/${editId}/`, {
-                suma: sumaInEur,
-                moneda: "EUR",
-                data,
-            });
-
-            if (moneda === "RON") {
-                setMsg(`✔ Venit modificat (${suma} RON ≈ ${sumaInEur} EUR)`);
-            } else {
-                setMsg("✔ Venit modificat");
-            }
+            setMsg(moneda === "RON"
+                ? `✔ Venit modificat (${suma} RON ≈ ${sumaInEur} EUR)`
+                : "✔ Venit modificat");
 
             resetForm();
             loadData();
@@ -237,66 +175,20 @@ export default function Venit() {
         }
     };
 
-    const previewEur =
-        suma && moneda === "RON"
-            ? `≈ ${round2(Number(suma) * ronToEurRate)} EUR`
-            : null;
+    const previewEur = suma && moneda === "RON"
+        ? `≈ ${round2(Number(suma) * ronToEurRate)} EUR`
+        : null;
 
-    const chartOptions = {
-        responsive: true,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-            legend: {
-                position: "bottom",
-                labels: {
-                    usePointStyle: true,
-                    font: { size: 12, weight: "600" },
-                },
-            },
-            tooltip: {
-                backgroundColor: "#1C1C1E",
-                padding: 12,
-                cornerRadius: 12,
-                callbacks: {
-                    label: (ctx) => `${ctx.parsed.y.toLocaleString("ro-RO")} EUR`,
-                },
-            },
-        },
-        scales: {
-            x: {
-                grid: { display: false },
-                ticks: { maxRotation: 0, autoSkip: true },
-            },
-            y: {
-                grid: { color: "rgba(0,0,0,0.06)" },
-                ticks: {
-                    callback: (v) => `${v.toLocaleString("ro-RO")} €`,
-                },
-            },
-        },
-    };
-
-    const totalGeneralStatus = chartData
-        ? chartData.datasets[0].data.reduce((acc, val) => acc + val, 0)
-        : 0;
+    const totalGeneralStatus = statusRows.reduce((acc, row) => acc + row.value, 0);
 
     return (
         <div style={styles.container}>
             <h2 style={styles.title}>💰 Venit</h2>
 
             <div style={localStyles.segmentWrapper}>
-                <div
-                    style={{
-                        ...localStyles.segmentSlider,
-                        left: activeTab === "form" ? "4px" : "50%",
-                    }}
-                />
-                <button style={localStyles.segmentBtn} onClick={() => setActiveTab("form")}>
-                    Gestionare venit
-                </button>
-                <button style={localStyles.segmentBtn} onClick={() => setActiveTab("history")}>
-                    Istoric venit
-                </button>
+                <div style={{ ...localStyles.segmentSlider, left: activeTab === "form" ? "4px" : "50%" }} />
+                <button style={localStyles.segmentBtn} onClick={() => setActiveTab("form")}>Gestionare venit</button>
+                <button style={localStyles.segmentBtn} onClick={() => setActiveTab("history")}>Istoric venit</button>
             </div>
 
             {activeTab === "form" && (
@@ -314,102 +206,49 @@ export default function Venit() {
                     {msg && <div style={styles.message}>{msg}</div>}
 
                     <div style={styles.card}>
-                        <h3 style={styles.sectionTitle}>
-                            {editId ? "✏️ Modifică venit" : "➕ Adaugă venit"}
-                        </h3>
+                        <h3 style={styles.sectionTitle}>{editId ? "✏️ Modifică venit" : "➕ Adaugă venit"}</h3>
 
-                        <input
-                            style={styles.input}
-                            type="number"
-                            placeholder="Sumă"
-                            value={suma}
-                            onChange={(e) => setSuma(e.target.value)}
-                        />
+                        <input style={styles.input} type="number" placeholder="Sumă" value={suma} onChange={(e) => setSuma(e.target.value)} />
 
-                        <select
-                            style={styles.input}
-                            value={moneda}
-                            onChange={(e) => setMoneda(e.target.value)}
-                        >
+                        <select style={styles.input} value={moneda} onChange={(e) => setMoneda(e.target.value)}>
                             <option value="EUR">EUR</option>
                             <option value="RON">RON</option>
                         </select>
 
-                        {previewEur && (
-                            <div style={{ marginBottom: 12, fontSize: 13, color: "#636366" }}>
-                                Conversie automată: {previewEur}
-                            </div>
-                        )}
+                        {previewEur && <div style={{ marginBottom: 12, fontSize: 13, color: "#636366" }}>Conversie automată: {previewEur}</div>}
 
-                        <input
-                            style={styles.input}
-                            type="date"
-                            value={data}
-                            onChange={(e) => setData(e.target.value)}
-                        />
+                        <input style={styles.input} type="date" value={data} onChange={(e) => setData(e.target.value)} />
 
-                        {editId ? (
-                            <button style={styles.greenButton} onClick={salveazaEdit}>
-                                💾 Salvează modificarea
-                            </button>
-                        ) : (
-                            <button style={styles.blueButton} onClick={adaugaVenit}>
-                                ➕ Adaugă venit
-                            </button>
-                        )}
+                        {editId
+                            ? <button style={styles.greenButton} onClick={salveazaEdit}>💾 Salvează modificarea</button>
+                            : <button style={styles.blueButton} onClick={adaugaVenit}>➕ Adaugă venit</button>}
                     </div>
 
                     {editId && (
                         <div style={styles.selectedCard}>
                             <div style={styles.selectedLabel}>Venit selectat pentru modificare</div>
-                            <div style={styles.selectedValue}>
-                                {suma} {moneda} – {data}
-                            </div>
+                            <div style={styles.selectedValue}>{suma} {moneda} – {data}</div>
                         </div>
                     )}
 
                     <div style={styles.card}>
                         <h3 style={styles.sectionTitle}>Istoric înregistrări</h3>
-
                         {venituri.map((v) => (
                             <div
                                 key={v.id}
-                                style={{
-                                    ...styles.row,
-                                    ...(editId === v.id ? styles.activeRow : {}),
-                                }}
-                                onClick={() => {
-                                    setEditId(v.id);
-                                    setSuma(v.suma);
-                                    setMoneda(v.moneda);
-                                    setData(v.data);
-                                }}
+                                style={{ ...styles.row, ...(editId === v.id ? styles.activeRow : {}) }}
+                                onClick={() => { setEditId(v.id); setSuma(v.suma); setMoneda(v.moneda); setData(v.data); }}
                             >
                                 <div>
-                                    <div style={styles.amount}>
-                                        {v.suma} {v.moneda}
-                                    </div>
-
-                                    <div style={{ fontSize: 12, opacity: 0.7 }}>
-                                        👤 {v.username || currentUser?.username}
-                                    </div>
+                                    <div style={styles.amount}>{v.suma} {v.moneda}</div>
+                                    <div style={{ fontSize: 12, opacity: 0.7 }}>👤 {v.username || currentUser?.username}</div>
                                     <div style={styles.date}>{v.data}</div>
-                                    {v.updated_at && (
-                                        <div style={styles.updated}>
-                                            ultima modificare: {formatDateTime(v.updated_at)}
-                                        </div>
-                                    )}
+                                    {v.updated_at && <div style={styles.updated}>ultima modificare: {formatDateTime(v.updated_at)}</div>}
                                 </div>
-
                                 <button
                                     style={styles.deleteBtn}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        stergeVenit(v.id);
-                                    }}
-                                >
-                                    🗑
-                                </button>
+                                    onClick={(e) => { e.stopPropagation(); stergeVenit(v.id); }}
+                                >🗑</button>
                             </div>
                         ))}
                     </div>
@@ -418,44 +257,36 @@ export default function Venit() {
 
             {activeTab === "history" && (
                 <div style={styles.card}>
-                    <h3 style={styles.sectionTitle}>📈 Istoric venit</h3>
+                    <h3 style={styles.sectionTitle}>📋 Istoric venit</h3>
 
-                    {!chartData ? (
-                        <div style={styles.message}>⏳ Se încarcă...</div>
-                    ) : (
-                        <>
-                            <Line data={chartData} options={chartOptions} />
-
-                            <div style={localStyles.tableWrapper}>
-                                <table style={localStyles.table}>
-                                    <thead>
-                                        <tr>
-                                            <th style={localStyles.th}>Luna</th>
-                                            <th style={{ ...localStyles.th, textAlign: "right" }}>Venit (EUR)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {chartData.labels.map((label, idx) => (
-                                            <tr key={label} style={idx % 2 === 0 ? localStyles.rowEven : localStyles.rowOdd}>
-                                                <td style={localStyles.td}>{label}</td>
-                                                <td style={{ ...localStyles.td, textAlign: "right", fontWeight: 600, color: "#1C1C1E" }}>
-                                                    {Number(chartData.datasets[0].data[idx]).toLocaleString("ro-RO")} EUR
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr>
-                                            <td style={localStyles.totalCell}>TOTAL GENERAL</td>
-                                            <td style={{ ...localStyles.totalCell, textAlign: "right", color: "#34C759" }}>
-                                                {totalGeneralStatus.toLocaleString("ro-RO")} EUR
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-                        </>
-                    )}
+                    <div style={localStyles.tableWrapper}>
+                        <table style={localStyles.table}>
+                            <thead>
+                                <tr>
+                                    <th style={localStyles.th}>Luna</th>
+                                    <th style={{ ...localStyles.th, textAlign: "right" }}>Venit (EUR)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {statusRows.map((row, idx) => (
+                                    <tr key={row.label} style={idx % 2 === 0 ? localStyles.rowEven : localStyles.rowOdd}>
+                                        <td style={localStyles.td}>{row.label}</td>
+                                        <td style={{ ...localStyles.td, textAlign: "right", fontWeight: 600, color: "#1C1C1E" }}>
+                                            {row.value.toLocaleString("ro-RO")} EUR
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td style={localStyles.totalCell}>TOTAL GENERAL</td>
+                                    <td style={{ ...localStyles.totalCell, textAlign: "right", color: "#34C759" }}>
+                                        {totalGeneralStatus.toLocaleString("ro-RO")} EUR
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>
@@ -469,7 +300,6 @@ const localStyles = {
         maxWidth: "520px",
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
-        gap: 0,
         background: "#E9E9EE",
         borderRadius: "14px",
         padding: "4px",
@@ -499,7 +329,7 @@ const localStyles = {
         cursor: "pointer",
     },
     tableWrapper: {
-        marginTop: "18px",
+        marginTop: "6px",
         border: "1px solid #E5E5EA",
         borderRadius: "14px",
         overflow: "hidden",
@@ -521,12 +351,8 @@ const localStyles = {
         padding: "11px 14px",
         borderBottom: "1px solid #F0F0F5",
     },
-    rowEven: {
-        background: "#FFFFFF",
-    },
-    rowOdd: {
-        background: "#FAFAFD",
-    },
+    rowEven: { background: "#FFFFFF" },
+    rowOdd: { background: "#FAFAFD" },
     totalCell: {
         padding: "12px 14px",
         fontWeight: "700",

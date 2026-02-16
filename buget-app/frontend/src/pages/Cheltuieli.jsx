@@ -1,9 +1,49 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import styles from "../styles/iosStyles";
+import Grafice from "./Grafice";
+
+const getCurrentCycleRange = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    if (today.getDate() >= 26) {
+        return {
+            start: new Date(year, month, 26),
+            end: new Date(year, month + 1, 25, 23, 59, 59, 999),
+        };
+    }
+
+    return {
+        start: new Date(year, month - 1, 26),
+        end: new Date(year, month, 25, 23, 59, 59, 999),
+    };
+};
+
+const toDateOnly = (value) => {
+    const d = new Date(value);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+};
+
+const normalizeCategory = (cat) => (cat === "auto" ? "transport" : cat);
+
+const categoryLabelMap = {
+    alimente: "🍎 Alimente",
+    sanatate: "🏥 Sănătate",
+    transport: "🚗 Transport",
+    cultura: "🎭 Cultură",
+    shopping: "🛍 Shopping",
+    neprevazute: "⚠️ Neprevăzute",
+    animalute: "🐾 Animăluțe",
+    vacanta: "✈️ Vacanță",
+    divertisment: "🎮 Divertisment",
+    investitii: "📈 Investiții",
+};
 
 export default function Cheltuieli() {
-    const [tab, setTab] = useState("variabile");
+    const [mainTab, setMainTab] = useState("gestionare"); // gestionare | status-variabile | istoric-cheltuieli
+    const [tab, setTab] = useState("variabile"); // fixe | variabile
     const [categorie, setCategorie] = useState("alimente");
 
     const [totalCheltuit, setTotalCheltuit] = useState(0);
@@ -11,12 +51,11 @@ export default function Cheltuieli() {
     const [totalVariabile, setTotalVariabile] = useState(0);
     const [venitTotal, setVenitTotal] = useState(0);
     const [baniRamasi, setBaniRamasi] = useState(0);
+
     const [descriere, setDescriere] = useState("");
     const [suma, setSuma] = useState("");
     const [moneda, setMoneda] = useState("EUR");
-    const [data, setData] = useState(
-        new Date().toISOString().split("T")[0]
-    );
+    const [data, setData] = useState(new Date().toISOString().split("T")[0]);
 
     const [fixe, setFixe] = useState([]);
     const [variabile, setVariabile] = useState([]);
@@ -25,11 +64,29 @@ export default function Cheltuieli() {
     const [lastDeleted, setLastDeleted] = useState(null);
     const [undoTab, setUndoTab] = useState(null);
 
+    const cycleRange = useMemo(() => getCurrentCycleRange(), []);
+
+    const inCurrentCycle = (itemDate) => {
+        const current = toDateOnly(itemDate);
+        return current >= cycleRange.start && current <= cycleRange.end;
+    };
+
+    const sortDescByNewest = (a, b) => {
+        const dateA = new Date(a.created_at || a.data);
+        const dateB = new Date(b.created_at || b.data);
+
+        if (dateB.getTime() !== dateA.getTime()) {
+            return dateB.getTime() - dateA.getTime();
+        }
+
+        return Number(b.id || 0) - Number(a.id || 0);
+    };
+
     const loadData = async () => {
         const [f, v, buget] = await Promise.all([
             api.get("cheltuieli-fixe/"),
             api.get("cheltuieli-variabile/"),
-            api.get("buget/lunar/")
+            api.get("buget/lunar/"),
         ]);
 
         setFixe(f.data);
@@ -55,7 +112,7 @@ export default function Cheltuieli() {
         if (tab === "fixe") {
             setDescriere(item.descriere);
         } else {
-            setCategorie(item.categorie);
+            setCategorie(normalizeCategory(item.categorie));
         }
     };
 
@@ -74,7 +131,7 @@ export default function Cheltuieli() {
         const payload =
             tab === "fixe"
                 ? { descriere, suma, moneda, data }
-                : { categorie, suma, moneda, data };
+                : { categorie: normalizeCategory(categorie), suma, moneda, data };
 
         if (editId) {
             await api.put(
@@ -122,7 +179,7 @@ export default function Cheltuieli() {
                     data: lastDeleted.data,
                 }
                 : {
-                    categorie: lastDeleted.categorie,
+                    categorie: normalizeCategory(lastDeleted.categorie),
                     suma: lastDeleted.suma,
                     moneda: lastDeleted.moneda,
                     data: lastDeleted.data,
@@ -138,228 +195,237 @@ export default function Cheltuieli() {
         loadData();
     };
 
-    const procent = venitTotal > 0
-        ? Math.round((totalCheltuit / venitTotal) * 100)
-        : 0;
+    const procent = venitTotal > 0 ? Math.round((totalCheltuit / venitTotal) * 100) : 0;
 
-    const list = tab === "fixe" ? fixe : variabile;
+    const list = (tab === "fixe" ? fixe : variabile)
+        .filter((item) => inCurrentCycle(item.data))
+        .sort(sortDescByNewest);
+
+    const variableStatus = variabile
+        .filter((item) => inCurrentCycle(item.data))
+        .reduce((acc, item) => {
+            const key = normalizeCategory(item.categorie || "neprevazute");
+            acc[key] = (acc[key] || 0) + Number(item.suma || 0);
+            return acc;
+        }, {});
+
+    const variableStatusRows = Object.entries(variableStatus)
+        .sort(([, a], [, b]) => b - a)
+        .map(([key, sum]) => ({
+            key,
+            label: categoryLabelMap[key] || key,
+            sum,
+        }));
+
+    const totalVariabileCurente = variableStatusRows.reduce((acc, row) => acc + row.sum, 0);
 
     return (
         <div style={styles.container}>
             <div style={styles.card}>
                 <h2 style={styles.title}>💸 Gestionare Cheltuieli</h2>
-                <div style={styles.heroCard}>
-                    <div style={styles.heroLabel}>💰 Bani rămași</div>
-                    <div style={{
-                        ...styles.heroValue,
-                        color: baniRamasi >= 0 ? "#ffffff" : "#ff0000"
-                    }}>
-                        {baniRamasi} EUR
-                    </div>
-                </div>
 
-                {/* Segmented Control */}
-                <div style={localStyles.segmentWrapper}>
-                    <div
-                        style={{
-                            ...localStyles.segmentSlider,
-                            left: tab === "fixe" ? "4px" : "50%",
-                        }}
-                    />
+                <div style={localStyles.mainTabsWrapper}>
                     <button
-                        onClick={() => setTab("fixe")}
-                        style={localStyles.segmentBtn}
+                        onClick={() => setMainTab("gestionare")}
+                        style={{ ...localStyles.mainTabBtn, ...(mainTab === "gestionare" ? localStyles.mainTabBtnActive : {}) }}
                     >
-                        Fixe
+                        Gestionare
                     </button>
                     <button
-                        onClick={() => setTab("variabile")}
-                        style={localStyles.segmentBtn}
+                        onClick={() => setMainTab("status-variabile")}
+                        style={{ ...localStyles.mainTabBtn, ...(mainTab === "status-variabile" ? localStyles.mainTabBtnActive : {}) }}
                     >
-                        Variabile
+                        Status cheltuieli variabile
+                    </button>
+                    <button
+                        onClick={() => setMainTab("istoric-cheltuieli")}
+                        style={{ ...localStyles.mainTabBtn, ...(mainTab === "istoric-cheltuieli" ? localStyles.mainTabBtnActive : {}) }}
+                    >
+                        Istoric cheltuieli
                     </button>
                 </div>
 
-                {/* Progress bar */}
-                <div style={localStyles.totalCard}>
-                    <div style={localStyles.totalRow}>
-                        <span>💸 Total cheltuit</span>
-                        <strong>{totalCheltuit} EUR</strong>
-                    </div>
+                {mainTab === "gestionare" && (
+                    <>
+                        <div style={styles.heroCard}>
+                            <div style={styles.heroLabel}>💰 Bani rămași</div>
+                            <div style={{ ...styles.heroValue, color: baniRamasi >= 0 ? "#ffffff" : "#ff0000" }}>
+                                {baniRamasi} EUR
+                            </div>
+                        </div>
 
-                    <div style={localStyles.progressBarWrapper}>
-                        <div
-                            style={{
-                                ...localStyles.progressBar,
-                                width: `${procent}%`,
-                                background: procent > 80 ? "#FF3B30" : "#34C759"
-                            }}
-                        />
-                    </div>
+                        <div style={localStyles.segmentWrapper}>
+                            <div
+                                style={{
+                                    ...localStyles.segmentSlider,
+                                    left: tab === "fixe" ? "4px" : "50%",
+                                }}
+                            />
+                            <button onClick={() => setTab("fixe")} style={localStyles.segmentBtn}>Fixe</button>
+                            <button onClick={() => setTab("variabile")} style={localStyles.segmentBtn}>Variabile</button>
+                        </div>
 
+                        <div style={localStyles.totalCard}>
+                            <div style={localStyles.totalRow}>
+                                <span>💸 Total cheltuit</span>
+                                <strong>{totalCheltuit} EUR</strong>
+                            </div>
 
-                    {/* Total cheltuieli fixe si variabile */}
+                            <div style={localStyles.progressBarWrapper}>
+                                <div
+                                    style={{
+                                        ...localStyles.progressBar,
+                                        width: `${procent}%`,
+                                        background: procent > 80 ? "#FF3B30" : "#34C759",
+                                    }}
+                                />
+                            </div>
 
-                    <div style={localStyles.percentText}>
-                        {procent}% din venit
-                    </div>
-                </div>
+                            <div style={localStyles.percentText}>{procent}% din venit</div>
+                        </div>
 
-                <div style={localStyles.breakdownRow}>
-                    <span>🏠 Fixe</span>
-                    <strong>{totalFixe} EUR</strong>
-                </div>
+                        <div style={localStyles.breakdownRow}><span>🏠 Fixe</span><strong>{totalFixe} EUR</strong></div>
+                        <div style={localStyles.breakdownRow}><span>🛍 Variabile</span><strong>{totalVariabile} EUR</strong></div>
 
-                <div style={localStyles.breakdownRow}>
-                    <span>🛍 Variabile</span>
-                    <strong>{totalVariabile} EUR</strong>
-                </div>
+                        <div style={styles.card}>
+                            <h3 style={styles.sectionTitle}>{editId ? "✏️ Modifică" : "➕ Adaugă"}</h3>
 
+                            {tab === "fixe" ? (
+                                <input
+                                    style={styles.input}
+                                    placeholder="Descriere"
+                                    value={descriere}
+                                    onChange={(e) => setDescriere(e.target.value)}
+                                />
+                            ) : (
+                                <select style={styles.input} value={categorie} onChange={(e) => setCategorie(e.target.value)}>
+                                    <option value="alimente">🍎 Alimente</option>
+                                    <option value="sanatate">🏥 Sănătate</option>
+                                    <option value="transport">🚗 Transport</option>
+                                    <option value="cultura">🎭 Cultură</option>
+                                    <option value="shopping">🛍 Shopping</option>
+                                    <option value="neprevazute">⚠️ Neprevăzute</option>
+                                    <option value="animalute">🐾 Animăluțe</option>
+                                    <option value="vacanta">✈️ Vacanță</option>
+                                    <option value="divertisment">🎮 Divertisment</option>
+                                    <option value="investitii">📈 Investiții</option>
+                                </select>
+                            )}
 
+                            <input style={styles.input} type="number" placeholder="Sumă" value={suma} onChange={(e) => setSuma(e.target.value)} />
 
-                {/* FORM */}
-                <div style={{ marginTop: 30 }}>
-                    {tab === "fixe" && (
-                        <input
-                            style={styles.input}
-                            placeholder="Descriere"
-                            value={descriere}
-                            onChange={(e) => setDescriere(e.target.value)}
-                        />
-                    )}
+                            <select style={styles.input} value={moneda} onChange={(e) => setMoneda(e.target.value)}>
+                                <option value="EUR">EUR €</option>
+                                <option value="RON">RON lei</option>
+                            </select>
 
-                    {tab === "variabile" && (
-                        <select
-                            style={styles.input}
-                            value={categorie}
-                            onChange={(e) => setCategorie(e.target.value)}
-                        >
-                            <option value="alimente">🍎 Alimente</option>
-                            <option value="sanatate">🏥 Sănătate</option>
-                            <option value="auto">🚗 Auto</option>
-                            <option value="cultura">🎭 Cultură</option>
-                            <option value="shopping">🛍 Shopping</option>
-                            <option value="neprevazute">⚠️ Neprevăzute</option>
-                            <option value="animalute">🐾 Animăluțe</option>
-                            <option value="vacanta">✈️ Vacanță</option>
-                            <option value="divertisment">🎮 Divertisment</option>
-                            <option value="investitii">📈 Investiții</option>
-                        </select>
-                    )}
+                            <input style={styles.input} type="date" value={data} onChange={(e) => setData(e.target.value)} />
 
-                    <input
-                        style={styles.input}
-                        type="number"
-                        placeholder="Sumă"
-                        value={suma}
-                        onChange={(e) => setSuma(e.target.value)}
-                    />
+                            <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+                                <button style={styles.blueButton} onClick={adauga}>{editId ? "💾 Salvează" : "➕ Adaugă"}</button>
 
-                    <div style={{ display: "flex", gap: 12 }}>
-                        <select
-                            style={styles.input}
-                            value={moneda}
-                            onChange={(e) => setMoneda(e.target.value)}
-                        >
-                            <option value="EUR">EUR €</option>
-                            <option value="RON">RON lei</option>
-                        </select>
+                                {editId && (
+                                    <button style={localStyles.cancelBtn} onClick={resetForm}>Anulează</button>
+                                )}
+                            </div>
+                        </div>
 
-                        <input
-                            style={styles.input}
-                            type="date"
-                            value={data}
-                            onChange={(e) => setData(e.target.value)}
-                        />
-                    </div>
-
-                    <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-                        <button style={styles.blueButton} onClick={adauga}>
-                            {editId ? "💾 Salvează" : "➕ Adaugă"}
-                        </button>
-
-                        {editId && (
-                            <button
-                                style={localStyles.cancelBtn}
-                                onClick={resetForm}
-                            >
-                                Anulează
-                            </button>
+                        {lastDeleted && (
+                            <div style={localStyles.undoCard}>
+                                <span>🗑 Cheltuială ștearsă</span>
+                                <button onClick={undoDelete} style={localStyles.undoBtn}>Undo</button>
+                            </div>
                         )}
-                    </div>
-                </div>
 
-                {/* UNDO */}
-                {lastDeleted && (
-                    <div style={localStyles.undoCard}>
-                        <span>🗑 Cheltuială ștearsă</span>
-                        <button onClick={undoDelete} style={localStyles.undoBtn}>
-                            Undo
-                        </button>
+                        <h3 style={{ marginTop: 30, fontWeight: 600 }}>
+                            📋 Istoric ({cycleRange.start.toLocaleDateString("ro-RO")} - {cycleRange.end.toLocaleDateString("ro-RO")})
+                        </h3>
+
+                        <div>
+                            {list.map((c) => (
+                                <div key={c.id} style={styles.row}>
+                                    <div>
+                                        <div style={{ fontWeight: 600 }}>
+                                            {tab === "variabile"
+                                                ? (categoryLabelMap[normalizeCategory(c.categorie)] || normalizeCategory(c.categorie))
+                                                : c.descriere}
+                                        </div>
+                                        <div style={styles.date}>{new Date(c.data).toLocaleDateString("ro-RO")}</div>
+                                    </div>
+
+                                    <div style={{ textAlign: "right" }}>
+                                        <div style={styles.amount}>{c.suma} {c.moneda}</div>
+
+                                        <div style={{ marginTop: 6, display: "flex", gap: 12, alignItems: "center" }}>
+                                            <span style={localStyles.userBadge}>{c.username}</span>
+                                            <button onClick={() => startEdit(c)} style={localStyles.editBtn}>Edit</button>
+                                            <button onClick={() => sterge(c)} style={styles.deleteBtn}>Șterge</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+
+                {mainTab === "status-variabile" && (
+                    <div style={styles.card}>
+                        <h3 style={styles.sectionTitle}>📊 Status cheltuieli variabile</h3>
+                        <div style={styles.date}>
+                            Interval curent: {cycleRange.start.toLocaleDateString("ro-RO")} - {cycleRange.end.toLocaleDateString("ro-RO")}
+                        </div>
+
+                        <div style={{ marginTop: 16 }}>
+                            {variableStatusRows.length === 0 && <div style={styles.message}>Nu există cheltuieli variabile în interval.</div>}
+
+                            {variableStatusRows.map((row) => (
+                                <div key={row.key} style={styles.row}>
+                                    <span>{row.label}</span>
+                                    <strong>{row.sum.toLocaleString("ro-RO")} EUR</strong>
+                                </div>
+                            ))}
+
+                            {variableStatusRows.length > 0 && (
+                                <div style={{ ...styles.row, background: "#F6FFF8", borderRadius: 12, marginTop: 8, paddingInline: 10 }}>
+                                    <strong>Total variabile</strong>
+                                    <strong style={{ color: "#34C759" }}>{totalVariabileCurente.toLocaleString("ro-RO")} EUR</strong>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
-                {/* LISTĂ */}
-                <h3 style={{ marginTop: 40, fontWeight: 600 }}>
-                    📋 Istoric
-                </h3>
-
-                <div>
-                    {list.map((c) => (
-                        <div key={c.id} style={styles.row}>
-                            <div>
-                                <div style={{ fontWeight: 600 }}>
-                                    {c.categorie || c.descriere}
-                                </div>
-                                <div style={styles.date}>
-                                    {new Date(c.data).toLocaleDateString("ro-RO")}
-                                </div>
-                            </div>
-
-                            <div style={{ textAlign: "right" }}>
-                                <div style={styles.amount}>
-                                    {c.suma} {c.moneda}
-                                </div>
-
-                                <div style={{ marginTop: 6, display: "flex", gap: 12, alignItems: "center" }}>
-                                    <span style={{
-                                        background: "#0A84FF",
-                                        color: "white",
-                                        padding: "3px 8px",
-                                        borderRadius: "12px",
-                                        fontSize: "12px",
-                                        fontWeight: 500
-                                    }}>
-                                        {c.username}
-                                    </span>
-                                    <button
-                                        onClick={() => startEdit(c)}
-                                        style={localStyles.editBtn}
-                                    >
-                                        Edit
-                                    </button>
-
-                                    <button
-                                        onClick={() => sterge(c)}
-                                        style={styles.deleteBtn}
-                                    >
-                                        Șterge
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                {mainTab === "istoric-cheltuieli" && (
+                    <div style={{ marginTop: 10 }}>
+                        <Grafice />
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
-//////////////////////////////////////////////////////
-// STILURI LOCALE (doar specifice paginii)
-//////////////////////////////////////////////////////
-
 const localStyles = {
+    mainTabsWrapper: {
+        display: "grid",
+        gridTemplateColumns: "1fr",
+        gap: 8,
+        marginBottom: 16,
+    },
+    mainTabBtn: {
+        border: "1px solid #E5E5EA",
+        background: "#fff",
+        borderRadius: 12,
+        padding: "10px 12px",
+        fontWeight: 600,
+        cursor: "pointer",
+        textAlign: "left",
+    },
+    mainTabBtnActive: {
+        background: "#E5F0FF",
+        color: "#0A84FF",
+        borderColor: "#C7DDFF",
+    },
     segmentWrapper: {
         position: "relative",
         display: "flex",
@@ -415,32 +481,36 @@ const localStyles = {
         color: "#0A84FF",
         cursor: "pointer",
     },
+    userBadge: {
+        background: "#0A84FF",
+        color: "white",
+        padding: "3px 8px",
+        borderRadius: "12px",
+        fontSize: "12px",
+        fontWeight: 500,
+    },
     totalCard: {
         marginTop: 20,
         padding: 16,
         background: "#F2F2F7",
         borderRadius: 16,
     },
-
     totalRow: {
         display: "flex",
         justifyContent: "space-between",
         fontWeight: 600,
         marginBottom: 10,
     },
-
     progressBarWrapper: {
         height: 8,
         background: "#E5E5EA",
         borderRadius: 10,
         overflow: "hidden",
     },
-
     progressBar: {
         height: "100%",
         transition: "all 0.3s ease",
     },
-
     percentText: {
         marginTop: 8,
         fontSize: 13,
@@ -452,8 +522,5 @@ const localStyles = {
         marginTop: 10,
         fontSize: 14,
         fontWeight: 500,
-    }
-
-
-
+    },
 };
