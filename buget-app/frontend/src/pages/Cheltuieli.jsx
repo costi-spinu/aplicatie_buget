@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import styles from "../styles/iosStyles";
-import Grafice from "./Grafice";
 
 const getCurrentCycleRange = () => {
     const today = new Date();
@@ -26,7 +25,8 @@ const toDateOnly = (value) => {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 };
 
-const normalizeCategory = (cat) => (cat === "auto" ? "transport" : cat);
+const toUiCategory = (cat) => (cat === "auto" ? "transport" : cat);
+const toApiCategory = (cat) => (cat === "transport" ? "auto" : cat);
 
 const categoryLabelMap = {
     alimente: "🍎 Alimente",
@@ -37,7 +37,7 @@ const categoryLabelMap = {
     neprevazute: "⚠️ Neprevăzute",
     animalute: "🐾 Animăluțe",
     vacanta: "✈️ Vacanță",
-    divertisment: "🎮 Divertisment",
+    divertisment: "🍽 Iesiri/Restaurante/Diverse",
     investitii: "📈 Investiții",
 };
 
@@ -112,7 +112,7 @@ export default function Cheltuieli() {
         if (tab === "fixe") {
             setDescriere(item.descriere);
         } else {
-            setCategorie(normalizeCategory(item.categorie));
+            setCategorie(toUiCategory(item.categorie));
         }
     };
 
@@ -131,7 +131,7 @@ export default function Cheltuieli() {
         const payload =
             tab === "fixe"
                 ? { descriere, suma, moneda, data }
-                : { categorie: normalizeCategory(categorie), suma, moneda, data };
+                : { categorie: toApiCategory(categorie), suma, moneda, data };
 
         if (editId) {
             await api.put(
@@ -179,7 +179,7 @@ export default function Cheltuieli() {
                     data: lastDeleted.data,
                 }
                 : {
-                    categorie: normalizeCategory(lastDeleted.categorie),
+                    categorie: toApiCategory(toUiCategory(lastDeleted.categorie)),
                     suma: lastDeleted.suma,
                     moneda: lastDeleted.moneda,
                     data: lastDeleted.data,
@@ -204,7 +204,7 @@ export default function Cheltuieli() {
     const variableStatus = variabile
         .filter((item) => inCurrentCycle(item.data))
         .reduce((acc, item) => {
-            const key = normalizeCategory(item.categorie || "neprevazute");
+            const key = toUiCategory(item.categorie || "neprevazute");
             acc[key] = (acc[key] || 0) + Number(item.suma || 0);
             return acc;
         }, {});
@@ -218,6 +218,10 @@ export default function Cheltuieli() {
         }));
 
     const totalVariabileCurente = variableStatusRows.reduce((acc, row) => acc + row.sum, 0);
+
+    const combinedHistory = [...fixe, ...variabile]
+        .filter((item) => inCurrentCycle(item.data))
+        .sort(sortDescByNewest);
 
     return (
         <div style={styles.container}>
@@ -307,7 +311,7 @@ export default function Cheltuieli() {
                                     <option value="neprevazute">⚠️ Neprevăzute</option>
                                     <option value="animalute">🐾 Animăluțe</option>
                                     <option value="vacanta">✈️ Vacanță</option>
-                                    <option value="divertisment">🎮 Divertisment</option>
+                                    <option value="divertisment">🍽 Iesiri/Restaurante/Diverse</option>
                                     <option value="investitii">📈 Investiții</option>
                                 </select>
                             )}
@@ -347,7 +351,7 @@ export default function Cheltuieli() {
                                     <div>
                                         <div style={{ fontWeight: 600 }}>
                                             {tab === "variabile"
-                                                ? (categoryLabelMap[normalizeCategory(c.categorie)] || normalizeCategory(c.categorie))
+                                                ? (categoryLabelMap[toUiCategory(c.categorie)] || toUiCategory(c.categorie))
                                                 : c.descriere}
                                         </div>
                                         <div style={styles.date}>{new Date(c.data).toLocaleDateString("ro-RO")}</div>
@@ -396,8 +400,31 @@ export default function Cheltuieli() {
                 )}
 
                 {mainTab === "istoric-cheltuieli" && (
-                    <div style={{ marginTop: 10 }}>
-                        <Grafice />
+                    <div style={styles.card}>
+                        <h3 style={styles.sectionTitle}>🧾 Istoric cheltuieli (fără grafice)</h3>
+                        <div style={styles.date}>
+                            Interval curent: {cycleRange.start.toLocaleDateString("ro-RO")} - {cycleRange.end.toLocaleDateString("ro-RO")}
+                        </div>
+
+                        <div style={{ marginTop: 14 }}>
+                            {combinedHistory.length === 0 && (
+                                <div style={styles.message}>Nu există cheltuieli în interval.</div>
+                            )}
+
+                            {combinedHistory.map((item) => (
+                                <div key={`${item.id}-${item.data}`} style={styles.row}>
+                                    <div>
+                                        <div style={{ fontWeight: 600 }}>
+                                            {item.descriere
+                                                ? `🏠 ${item.descriere}`
+                                                : (categoryLabelMap[toUiCategory(item.categorie)] || toUiCategory(item.categorie))}
+                                        </div>
+                                        <div style={styles.date}>{new Date(item.data).toLocaleDateString("ro-RO")}</div>
+                                    </div>
+                                    <strong>{item.suma} {item.moneda}</strong>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
