@@ -15,7 +15,6 @@ import DiagramaLunara from "./pages/DiagramaLunara";
 import Sidebar from "./components/Sidebar";
 import Fonduri from "./pages/Fonduri";
 import GraficeFonduri from "./pages/GraficeFonduri";
-import StatusVenit from "./pages/StatusVenit";
 import ProfilUtilizator from "./pages/ProfilUtilizator";
 
 function App() {
@@ -142,7 +141,6 @@ function App() {
 
           <div style={styles.pageContent}>
             {activePage === "venit" && <Venit />}
-            {activePage === "status-venit" && <StatusVenit />}
             {activePage === "cheltuieli" && <Cheltuieli />}
             {activePage === "grafice" && <Grafice />}
             {activePage === "economii" && <Economii />}
