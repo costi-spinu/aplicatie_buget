@@ -20,6 +20,8 @@ function getLunaFinanciara(dateStr) {
     return `${an}-${String(luna + 1).padStart(2, "0")}`;
 }
 
+const fmt2 = (value) => Number(value || 0).toFixed(2);
+
 export default function Economii() {
     const [venituri, setVenituri] = useState([]);
     const [fixe, setFixe] = useState([]);
@@ -153,7 +155,7 @@ export default function Economii() {
                     📆 Total recent economisit
                 </div>
                 <div style={styles.heroValue}>
-                    {totalRecent} €
+                    {fmt2(totalRecent)} €
                 </div>
             </div>
 
@@ -168,7 +170,7 @@ export default function Economii() {
                             color: l.economii >= 0 ? "#34C759" : "#FF3B30",
                             fontWeight: "600"
                         }}>
-                            {l.economii} €
+                            {fmt2(l.economii)} €
                         </span>
                     </div>
                 ))}
@@ -180,15 +182,15 @@ export default function Economii() {
 
                 <div style={styles.row}>
                     <span>Total pus deoparte</span>
-                    <span>{totalVacanta} €</span>
+                    <span>{fmt2(totalVacanta)} €</span>
                 </div>
                 <div style={styles.row}>
                     <span>Total cheltuit</span>
-                    <span>{totalCheltuit} €</span>
+                    <span>{fmt2(totalCheltuit)} €</span>
                 </div>
                 <div style={styles.row}>
                     <strong>Rămași</strong>
-                    <strong>{totalRamasVacanta} €</strong>
+                    <strong>{fmt2(totalRamasVacanta)} €</strong>
                 </div>
             </div>
 
@@ -245,7 +247,7 @@ export default function Economii() {
                         <div key={index} style={styles.row}>
                             <span>{c.data}</span>
                             <span style={{ color: "#FF3B30" }}>
-                                -{c.suma} €
+                                -{fmt2(c.suma)} €
                             </span>
                         </div>
                     ))}

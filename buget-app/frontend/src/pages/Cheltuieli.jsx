@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import styles from "../styles/iosStyles";
+import DiagramaLunara from "./DiagramaLunara";
+
+const EXCLUDED_VACATION_CATEGORIES = new Set(["vacanta", "vacanta_cheltuita"]);
 
 const getCurrentCycleRange = () => {
     const today = new Date();
@@ -41,9 +44,11 @@ const categoryLabelMap = {
     investitii: "📈 Investiții",
 };
 
+const round2 = (value) => Math.round(value * 100) / 100;
+
 export default function Cheltuieli() {
-    const [mainTab, setMainTab] = useState("gestionare"); // gestionare | status-variabile | istoric-cheltuieli
-    const [tab, setTab] = useState("variabile"); // fixe | variabile
+    const [mainTab, setMainTab] = useState("gestionare");
+    const [tab, setTab] = useState("variabile");
     const [categorie, setCategorie] = useState("alimente");
 
     const [totalCheltuit, setTotalCheltuit] = useState(0);
@@ -70,6 +75,8 @@ export default function Cheltuieli() {
         const current = toDateOnly(itemDate);
         return current >= cycleRange.start && current <= cycleRange.end;
     };
+
+    const isVacationOnlyCategory = (cat) => EXCLUDED_VACATION_CATEGORIES.has(cat);
 
     const sortDescByNewest = (a, b) => {
         const dateA = new Date(a.created_at || a.data);
@@ -195,14 +202,24 @@ export default function Cheltuieli() {
         loadData();
     };
 
-    const procent = venitTotal > 0 ? Math.round((totalCheltuit / venitTotal) * 100) : 0;
+    const vacationOnlyCurrentCycleTotal = variabile
+        .filter((item) => inCurrentCycle(item.data) && isVacationOnlyCategory(item.categorie))
+        .reduce((sum, item) => sum + Number(item.suma || 0), 0);
 
-    const list = (tab === "fixe" ? fixe : variabile)
+    const adjustedTotalCheltuit = round2(Math.max(0, Number(totalCheltuit || 0) - vacationOnlyCurrentCycleTotal));
+    const adjustedTotalVariabile = round2(Math.max(0, Number(totalVariabile || 0) - vacationOnlyCurrentCycleTotal));
+    const adjustedBaniRamasi = round2(Number(baniRamasi || 0) + vacationOnlyCurrentCycleTotal);
+
+    const procent = venitTotal > 0 ? Math.round((adjustedTotalCheltuit / venitTotal) * 100) : 0;
+
+    const list = (tab === "fixe"
+        ? fixe
+        : variabile.filter((item) => !isVacationOnlyCategory(item.categorie)))
         .filter((item) => inCurrentCycle(item.data))
         .sort(sortDescByNewest);
 
     const variableStatus = variabile
-        .filter((item) => inCurrentCycle(item.data))
+        .filter((item) => inCurrentCycle(item.data) && !isVacationOnlyCategory(item.categorie))
         .reduce((acc, item) => {
             const key = toUiCategory(item.categorie || "neprevazute");
             acc[key] = (acc[key] || 0) + Number(item.suma || 0);
@@ -221,6 +238,7 @@ export default function Cheltuieli() {
 
     const combinedHistory = [...fixe, ...variabile]
         .filter((item) => inCurrentCycle(item.data))
+        .filter((item) => !item.categorie || !isVacationOnlyCategory(item.categorie))
         .sort(sortDescByNewest);
 
     return (
@@ -247,14 +265,20 @@ export default function Cheltuieli() {
                     >
                         Istoric cheltuieli
                     </button>
+                    <button
+                        onClick={() => setMainTab("diagrama-lunara")}
+                        style={{ ...localStyles.mainTabBtn, ...(mainTab === "diagrama-lunara" ? localStyles.mainTabBtnActive : {}) }}
+                    >
+                        Diagramă lunară
+                    </button>
                 </div>
 
                 {mainTab === "gestionare" && (
                     <>
                         <div style={styles.heroCard}>
                             <div style={styles.heroLabel}>💰 Bani rămași</div>
-                            <div style={{ ...styles.heroValue, color: baniRamasi >= 0 ? "#ffffff" : "#ff0000" }}>
-                                {baniRamasi} EUR
+                            <div style={{ ...styles.heroValue, color: adjustedBaniRamasi >= 0 ? "#ffffff" : "#ff0000" }}>
+                                {adjustedBaniRamasi} EUR
                             </div>
                         </div>
 
@@ -272,7 +296,7 @@ export default function Cheltuieli() {
                         <div style={localStyles.totalCard}>
                             <div style={localStyles.totalRow}>
                                 <span>💸 Total cheltuit</span>
-                                <strong>{totalCheltuit} EUR</strong>
+                                <strong>{adjustedTotalCheltuit} EUR</strong>
                             </div>
 
                             <div style={localStyles.progressBarWrapper}>
@@ -289,7 +313,7 @@ export default function Cheltuieli() {
                         </div>
 
                         <div style={localStyles.breakdownRow}><span>🏠 Fixe</span><strong>{totalFixe} EUR</strong></div>
-                        <div style={localStyles.breakdownRow}><span>🛍 Variabile</span><strong>{totalVariabile} EUR</strong></div>
+                        <div style={localStyles.breakdownRow}><span>🛍 Variabile</span><strong>{adjustedTotalVariabile} EUR</strong></div>
 
                         <div style={styles.card}>
                             <h3 style={styles.sectionTitle}>{editId ? "✏️ Modifică" : "➕ Adaugă"}</h3>
@@ -427,6 +451,8 @@ export default function Cheltuieli() {
                         </div>
                     </div>
                 )}
+
+                {mainTab === "diagrama-lunara" && <DiagramaLunara />}
             </div>
         </div>
     );

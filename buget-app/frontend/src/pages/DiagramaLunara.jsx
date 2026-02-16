@@ -36,7 +36,13 @@ export default function DiagramaLunara() {
     // CALCULE
     // =========================
 
-    const totalCheltuieli = (data.cheltuieli || []).reduce(
+    const excludedCategories = new Set(["vacanta", "vacanta_cheltuita"]);
+
+    const visibleCheltuieli = (data.cheltuieli || []).filter(
+        (c) => !excludedCategories.has(c.categorie)
+    );
+
+    const totalCheltuieli = visibleCheltuieli.reduce(
         (s, c) => s + Number(c.total || 0),
         0
     );
@@ -45,12 +51,12 @@ export default function DiagramaLunara() {
         Number(data.venit || 0) - totalCheltuieli;
 
     const labels = [
-        ...(data.cheltuieli || []).map((c) => c.categorie),
+        ...visibleCheltuieli.map((c) => c.categorie),
         "Disponibil",
     ];
 
     const values = [
-        ...(data.cheltuieli || []).map((c) =>
+        ...visibleCheltuieli.map((c) =>
             Number(c.total || 0)
         ),
         sumaDisponibila > 0 ? sumaDisponibila : 0,

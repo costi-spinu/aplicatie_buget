@@ -10,7 +10,6 @@ import Venit from "./pages/Venit";
 import Cheltuieli from "./pages/Cheltuieli";
 import Economii from "./pages/Economii";
 import AdminPanel from "./pages/AdminPanel";
-import DiagramaLunara from "./pages/DiagramaLunara";
 import Sidebar from "./components/Sidebar";
 import Fonduri from "./pages/Fonduri";
 import GraficeFonduri from "./pages/GraficeFonduri";
@@ -142,7 +141,6 @@ function App() {
             {activePage === "venit" && <Venit />}
             {activePage === "cheltuieli" && <Cheltuieli />}
             {activePage === "economii" && <Economii />}
-            {activePage === "diagrama" && <DiagramaLunara />}
             {activePage === "fonduri" && <Fonduri />}
             {activePage === "grafice-fonduri" && <GraficeFonduri />}
             {activePage === "admin" && isAdmin && <AdminPanel />}

@@ -14,7 +14,6 @@ export default function Sidebar({
         { key: "venit", label: "Venit / Istoric venit" },
         { key: "cheltuieli", label: "Cheltuieli" },
         { key: "economii", label: "Economii / Vacanță" },
-        { key: "diagrama", label: "Diagramă luna în curs" },
         { key: "fonduri", label: "Fonduri investiții" },
         { key: "grafice-fonduri", label: "Grafice Fonduri" },
     ];
