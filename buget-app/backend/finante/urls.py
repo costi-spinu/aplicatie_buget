@@ -24,6 +24,7 @@ from .views import (
     economii_vacanta_sumar,
     fonduri,
     miscare_fond,
+    miscare_fond_detail,
     fonduri_grafic,
     fonduri_grafic_timeline,
     venit_status_lunar,
@@ -70,6 +71,7 @@ urlpatterns = [
     path("economii/vacanta/", economii_vacanta_sumar, name="economii-vacanta-sumar"),
     path("fonduri/", fonduri, name="fonduri"),
     path("fonduri/miscare/", miscare_fond, name="miscare-fond"),
+    path("fonduri/miscare/<int:pk>/", miscare_fond_detail, name="miscare-fond-detail"),
     path("fonduri/grafic/", fonduri_grafic, name="fonduri-grafic"),
     path(
         "fonduri/grafic/timeline/",

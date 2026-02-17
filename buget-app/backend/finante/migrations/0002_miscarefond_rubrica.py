@@ -1,0 +1,28 @@
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("finante", "0001_initial"),
+    ]
+
+    operations = [
+        migrations.AddField(
+            model_name="miscarefond",
+            name="rubrica",
+            field=models.CharField(
+                choices=[
+                    ("fond_urgenta", "Fond de urgență"),
+                    ("trading212", "Investiții - Trading212"),
+                    ("xtb", "Investiții - XTB"),
+                    ("revolut", "Investiții - Revolut"),
+                    ("tradeville", "Investiții - Tradeville"),
+                    ("cont_economii", "Cont de economii"),
+                    ("alte_investitii", "Alte investiții"),
+                ],
+                default="alte_investitii",
+                max_length=30,
+            ),
+        ),
+    ]
