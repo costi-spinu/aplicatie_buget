@@ -92,11 +92,7 @@ export default function Cheltuieli() {
         setFixe(f.data);
         setVariabile(v.data);
 
-        setTotalCheltuit(buget.data.cheltuieli);
         setVenitTotal(buget.data.venit);
-        setBaniRamasi(buget.data.economii);
-        setTotalFixe(buget.data.fixe);
-        setTotalVariabile(buget.data.variabile);
     };
 
     useEffect(() => {
@@ -197,12 +193,29 @@ export default function Cheltuieli() {
 
     const procent = venitTotal > 0 ? Math.round((totalCheltuit / venitTotal) * 100) : 0;
 
-    const list = (tab === "fixe" ? fixe : variabile)
+    useEffect(() => {
+        const fixeCurente = fixe
+            .filter((item) => inCurrentCycle(item.data))
+            .reduce((acc, item) => acc + Number(item.suma || 0), 0);
+
+        const variabileCurente = variabile
+            .filter((item) => inCurrentCycle(item.data) && item.categorie !== "vacanta_cheltuita")
+            .reduce((acc, item) => acc + Number(item.suma || 0), 0);
+
+        const cheltuitCurent = fixeCurente + variabileCurente;
+
+        setTotalFixe(fixeCurente);
+        setTotalVariabile(variabileCurente);
+        setTotalCheltuit(cheltuitCurent);
+        setBaniRamasi(venitTotal - cheltuitCurent);
+    }, [fixe, variabile, venitTotal, cycleRange]);
+
+    const list = (tab === "fixe" ? fixe : variabile.filter((item) => item.categorie !== "vacanta_cheltuita"))
         .filter((item) => inCurrentCycle(item.data))
         .sort(sortDescByNewest);
 
     const variableStatus = variabile
-        .filter((item) => inCurrentCycle(item.data))
+        .filter((item) => inCurrentCycle(item.data) && item.categorie !== "vacanta_cheltuita")
         .reduce((acc, item) => {
             const key = toUiCategory(item.categorie || "neprevazute");
             acc[key] = (acc[key] || 0) + Number(item.suma || 0);
@@ -219,7 +232,7 @@ export default function Cheltuieli() {
 
     const totalVariabileCurente = variableStatusRows.reduce((acc, row) => acc + row.sum, 0);
 
-    const combinedHistory = [...fixe, ...variabile]
+    const combinedHistory = [...fixe, ...variabile.filter((item) => item.categorie !== "vacanta_cheltuita")]
         .filter((item) => inCurrentCycle(item.data))
         .sort(sortDescByNewest);
 
@@ -254,7 +267,7 @@ export default function Cheltuieli() {
                         <div style={styles.heroCard}>
                             <div style={styles.heroLabel}>💰 Bani rămași</div>
                             <div style={{ ...styles.heroValue, color: baniRamasi >= 0 ? "#ffffff" : "#ff0000" }}>
-                                {baniRamasi} EUR
+                                {Number(baniRamasi || 0).toFixed(2)} EUR
                             </div>
                         </div>
 
