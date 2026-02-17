@@ -144,7 +144,7 @@ function App() {
             {activePage === "economii" && <Economii />}
             {activePage === "diagrama" && <DiagramaLunara />}
             {activePage === "fonduri" && <Fonduri />}
-            {activePage === "grafice-fonduri" && <GraficeFonduri />}
+            {/* {activePage === "grafice-fonduri" && <GraficeFonduri />} */}
             {activePage === "admin" && isAdmin && <AdminPanel />}
             {activePage === "profil" && !isAdmin && <ProfilUtilizator />}
           </div>

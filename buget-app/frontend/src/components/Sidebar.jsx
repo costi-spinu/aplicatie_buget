@@ -16,7 +16,7 @@ export default function Sidebar({
         { key: "economii", label: "Economii / Vacanță" },
         { key: "diagrama", label: "Diagramă luna în curs" },
         { key: "fonduri", label: "Fonduri investiții" },
-        { key: "grafice-fonduri", label: "Grafice Fonduri" },
+        // { key: "grafice-fonduri", label: "Grafice Fonduri" },
     ];
 
     if (isAdmin) {

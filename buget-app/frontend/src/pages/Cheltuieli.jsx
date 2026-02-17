@@ -92,11 +92,11 @@ export default function Cheltuieli() {
         setFixe(f.data);
         setVariabile(v.data);
 
-        setTotalCheltuit(buget.data.cheltuieli);
+        // setTotalCheltuit(buget.data.cheltuieli);
         setVenitTotal(buget.data.venit);
-        setBaniRamasi(buget.data.economii);
-        setTotalFixe(buget.data.fixe);
-        setTotalVariabile(buget.data.variabile);
+        // setBaniRamasi(buget.data.economii);
+        // setTotalFixe(buget.data.fixe);
+        // setTotalVariabile(buget.data.variabile);
     };
 
     useEffect(() => {
@@ -197,12 +197,32 @@ export default function Cheltuieli() {
 
     const procent = venitTotal > 0 ? Math.round((totalCheltuit / venitTotal) * 100) : 0;
 
-    const list = (tab === "fixe" ? fixe : variabile)
-        .filter((item) => inCurrentCycle(item.data))
-        .sort(sortDescByNewest);
+    // const list = (tab === "fixe" ? fixe : variabile)
+    //     .filter((item) => inCurrentCycle(item.data))
+    //     .sort(sortDescByNewest);
+
+    useEffect(() => {
+        const fixeCurente = fixe
+            .filter((item) => inCurrentCycle(item.data))
+            .reduce((acc, item) => acc + Number(item.suma || 0), 0);
+
+        const variabileCurente = variabile
+            .filter((item) => inCurrentCycle(item.data) && item.categorie !== "vacanta_cheltuita")
+            .reduce((acc, item) => acc + Number(item.suma || 0), 0);
+
+        const cheltuitCurent = fixeCurente + variabileCurente;
+
+        setTotalFixe(fixeCurente);
+        setTotalVariabile(variabileCurente);
+        setTotalCheltuit(cheltuitCurent);
+        setBaniRamasi(venitTotal - cheltuitCurent);
+    }, [fixe, variabile, venitTotal, cycleRange]);
+
+    const list = (tab === "fixe" ? fixe : variabile.filter((item) => item.categorie !== "vacanta_cheltuita"))
 
     const variableStatus = variabile
-        .filter((item) => inCurrentCycle(item.data))
+        // .filter((item) => inCurrentCycle(item.data))
+        .filter((item) => inCurrentCycle(item.data) && item.categorie !== "vacanta_cheltuita")
         .reduce((acc, item) => {
             const key = toUiCategory(item.categorie || "neprevazute");
             acc[key] = (acc[key] || 0) + Number(item.suma || 0);
@@ -219,7 +239,11 @@ export default function Cheltuieli() {
 
     const totalVariabileCurente = variableStatusRows.reduce((acc, row) => acc + row.sum, 0);
 
-    const combinedHistory = [...fixe, ...variabile]
+
+
+
+    // const combinedHistory = [...fixe, ...variabile]
+    const combinedHistory = [...fixe, ...variabile.filter((item) => item.categorie !== "vacanta_cheltuita")]
         .filter((item) => inCurrentCycle(item.data))
         .sort(sortDescByNewest);
 
@@ -254,7 +278,8 @@ export default function Cheltuieli() {
                         <div style={styles.heroCard}>
                             <div style={styles.heroLabel}>💰 Bani rămași</div>
                             <div style={{ ...styles.heroValue, color: baniRamasi >= 0 ? "#ffffff" : "#ff0000" }}>
-                                {baniRamasi} EUR
+                                {/* {baniRamasi} EUR */}
+                                {Number(baniRamasi || 0).toFixed(2)} EUR
                             </div>
                         </div>
 
@@ -310,7 +335,7 @@ export default function Cheltuieli() {
                                     <option value="shopping">🛍 Shopping</option>
                                     <option value="neprevazute">⚠️ Neprevăzute</option>
                                     <option value="animalute">🐾 Animăluțe</option>
-                                    <option value="vacanta">✈️ Vacanță</option>
+                                    <option value="vacanta">✈️ Vacanță/Investitii</option>
                                     <option value="divertisment">🍽 Iesiri/Restaurante/Diverse</option>
                                     <option value="investitii">📈 Investiții</option>
                                 </select>
@@ -535,7 +560,7 @@ const localStyles = {
         overflow: "hidden",
     },
     progressBar: {
-        height: "100%",
+        height: "90%",
         transition: "all 0.3s ease",
     },
     percentText: {
