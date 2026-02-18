@@ -171,7 +171,7 @@ const styles = {
 
   pageContainer: {
     minHeight: "100vh",
-    maxWidth: "460px",
+    maxWidth: "500px",
     margin: "0 auto",
   },
 
@@ -204,8 +204,8 @@ const styles = {
   },
 
   pageContent: {
-    padding: "16px",
-    fontSize: "14px",
+    padding: "10px",
+    fontSize: "15px",
   },
 
   loading: {

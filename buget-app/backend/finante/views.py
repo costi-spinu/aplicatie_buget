@@ -23,6 +23,7 @@ from .models import (
     MiscareFond,
     Fond,
     UserBridge,
+    RealizareLunara,
 )
 
 from .serializers import (
@@ -34,6 +35,7 @@ from .serializers import (
     EconomieLunaraSerializer,
     MiscareFondSerializer,
     FondSerializer,
+    RealizareLunaraSerializer,
 )
 
 from .utils import get_luna_bugetara
@@ -69,6 +71,13 @@ class CheltuialaVariabilaViewSet(BaseViewSet):
 class EconomieVacantaViewSet(BaseViewSet):
     queryset = EconomieVacanta.objects.all()
     serializer_class = EconomieVacantaSerializer
+
+
+
+
+class RealizareLunaraViewSet(BaseViewSet):
+    queryset = RealizareLunara.objects.all()
+    serializer_class = RealizareLunaraSerializer
 
 
 class RegisterView(APIView):
@@ -577,6 +586,11 @@ def delete_user(request, pk):
                 ),
                 "economii_lunare": list(
                     EconomieLunara.objects.filter(user=user).values("luna", "sold")
+                ),
+                "realizari_lunare": list(
+                    RealizareLunara.objects.filter(user=user).values(
+                        "luna", "fixed_target", "category_targets", "updated_at"
+                    )
                 ),
                 "fonduri": list(
                     Fond.objects.filter(user=user).values(

@@ -217,11 +217,11 @@ export default function AdminPanel() {
 const localStyles = {
     searchInput: {
         width: "95%",
-        padding: "10px",
+        padding: "14px",
         borderRadius: "14px",
         border: "1px solid #E5E5EA",
-        marginBottom: "16px",
-        fontSize: "13px",
+        marginBottom: "20px",
+        fontSize: "15px",
         background: "#F9F9FB",
     },
     userList: {
@@ -233,7 +233,7 @@ const localStyles = {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "14px",
+        padding: "18px",
         borderBottom: "1px solid #EAEAF0",
     },
     email: {
@@ -252,26 +252,26 @@ const localStyles = {
     },
     actionButtons: {
         display: "flex",
-        gap: "8px",
+        gap: "10px",
     },
     editButton: {
-        padding: "7px 10px",
+        padding: "8px 14px",
         borderRadius: "14px",
         border: "none",
         background: "#0A84FF",
         color: "white",
         fontWeight: "600",
-        fontSize: "12px",
+        fontSize: "14px",
         cursor: "pointer",
     },
     deleteButton: {
-        padding: "7px 10px",
+        padding: "8px 14px",
         borderRadius: "14px",
         border: "none",
         background: "#FF3B30",
         color: "white",
         fontWeight: "600",
-        fontSize: "12px",
+        fontSize: "14px",
         cursor: "pointer",
     },
     superBadge: {

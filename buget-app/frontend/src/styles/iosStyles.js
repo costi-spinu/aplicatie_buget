@@ -6,9 +6,9 @@ const baseFont = "-apple-system, BlinkMacSystemFont, sans-serif";
 
 const styles = {
     container: {
-        maxWidth: "420px",
-        margin: "24px auto",
-        padding: "16px",
+        maxWidth: "500px",
+        margin: "40px auto",
+        padding: "10px",
         fontFamily: baseFont,
         background: "#F2F2F7",
         minHeight: "100vh",
@@ -35,9 +35,9 @@ const styles = {
     },
 
     title: {
-        fontSize: "23px",
+        fontSize: "28px",
         fontWeight: "700",
-        marginBottom: "16px",
+        marginBottom: "20px",
     },
     heroCard: {
         background: "linear-gradient(135deg, #34C759, #30B0C7)",
@@ -55,9 +55,9 @@ const styles = {
     },
     card: {
         background: "white",
-        borderRadius: "24px",
-        padding: "16px",
-        marginBottom: "16px",
+        borderRadius: "20px",
+        padding: "20px",
+        marginBottom: "20px",
         boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
     },
     sectionTitle: {
@@ -66,33 +66,33 @@ const styles = {
     },
     input: {
         width: "90%",
-        padding: "10px",
+        padding: "12px",
         borderRadius: "14px",
         border: "1px solid #E5E5EA",
         marginBottom: "12px",
-        fontSize: "14px",
+        fontSize: "16px",
         background: "#F9F9FB",
     },
     blueButton: {
         width: "95%",
-        padding: "12px",
+        padding: "14px",
         borderRadius: "16px",
         border: "none",
         background: "#0A84FF",
         color: "white",
         fontWeight: "600",
-        fontSize: "14px",
+        fontSize: "16px",
         cursor: "pointer",
     },
     greenButton: {
         width: "95%",
-        padding: "12px",
+        padding: "14px",
         borderRadius: "16px",
         border: "none",
         background: "#34C759",
         color: "white",
         fontWeight: "600",
-        fontSize: "14px",
+        fontSize: "16px",
         cursor: "pointer",
     },
 
@@ -202,7 +202,7 @@ const styles = {
         marginBottom: "20px",
     },
     homeSubtitle: {
-        fontSize: "14px",
+        fontSize: "16px",
         color: "#636366",
         lineHeight: 1.5,
         marginBottom: "25px",
