@@ -37,16 +37,32 @@ export default function AdminPanel() {
     };
 
     const deleteUser = async (user) => {
-        if (!window.confirm("Sigur vrei să ștergi acest utilizator?"))
-            return;
-
         if (user.is_superuser) {
             alert("Nu poți șterge un superuser.");
             return;
         }
 
-        await api.delete(`admin/users/${user.id}/delete/`);
-        loadUsers();
+        const confirmDelete = window.confirm(
+            "Ești sigur că vrei să ștergi utilizatorul? Se vor șterge și toate datele lui."
+        );
+
+        if (!confirmDelete) return;
+
+        const sendCopy = window.confirm(
+            "Vrei să trimiți pe email o copie a datelor utilizatorului înainte de ștergere?"
+        );
+
+        try {
+            await api.delete(
+                `admin/users/${user.id}/delete/?send_copy=${sendCopy}`
+            );
+            loadUsers();
+        } catch (error) {
+            const message =
+                error?.response?.data?.error ||
+                "Nu am putut șterge utilizatorul. Încearcă din nou.";
+            alert(message);
+        }
     };
 
     return (

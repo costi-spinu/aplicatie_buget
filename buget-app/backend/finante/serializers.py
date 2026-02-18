@@ -9,6 +9,7 @@ from .models import (
     CheltuialaVariabila,
     EconomieVacanta,
     EconomieLunara,
+    RealizareLunara,
 )
 
 
@@ -127,3 +128,10 @@ class MiscareFondSerializer(serializers.ModelSerializer):
         if not data.get("suma_eur") and not data.get("suma_ron"):
             raise serializers.ValidationError("Trebuie completată suma în EUR sau RON")
         return data
+
+
+class RealizareLunaraSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RealizareLunara
+        fields = ("id", "luna", "fixed_target", "category_targets", "updated_at")
+        read_only_fields = ("id", "updated_at")

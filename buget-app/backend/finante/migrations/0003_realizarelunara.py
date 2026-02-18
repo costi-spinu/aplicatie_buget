@@ -1,0 +1,29 @@
+from django.db import migrations, models
+import django.db.models.deletion
+from django.conf import settings
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('finante', '0002_miscarefond_rubrica'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='RealizareLunara',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('luna', models.CharField(max_length=7)),
+                ('fixed_target', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
+                ('category_targets', models.JSONField(blank=True, default=dict)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='realizari_lunare', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'ordering': ['-luna'],
+                'unique_together': {('user', 'luna')},
+            },
+        ),
+    ]
