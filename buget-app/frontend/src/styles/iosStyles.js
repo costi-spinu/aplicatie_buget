@@ -6,9 +6,11 @@ const baseFont = "-apple-system, BlinkMacSystemFont, sans-serif";
 
 const styles = {
     container: {
-        maxWidth: "520px",
-        margin: "40px auto",
-        padding: "20px",
+        width: "100%",
+        maxWidth: "500px",
+        margin: "24px auto 40px",
+        padding: "10px",
+        boxSizing: "border-box",
         fontFamily: baseFont,
         background: "#F2F2F7",
         minHeight: "100vh",
