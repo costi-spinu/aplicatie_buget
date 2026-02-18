@@ -15,6 +15,7 @@ import Sidebar from "./components/Sidebar";
 import Fonduri from "./pages/Fonduri";
 import GraficeFonduri from "./pages/GraficeFonduri";
 import ProfilUtilizator from "./pages/ProfilUtilizator";
+import Realizari from "./pages/Realizari";
 
 function App() {
   const [activePage, setActivePage] = useState(null);
@@ -145,8 +146,10 @@ function App() {
             {activePage === "diagrama" && <DiagramaLunara />}
             {activePage === "fonduri" && <Fonduri />}
             {/* {activePage === "grafice-fonduri" && <GraficeFonduri />} */}
+            {activePage === "realizari" && <Realizari />}
             {activePage === "admin" && isAdmin && <AdminPanel />}
             {activePage === "profil" && !isAdmin && <ProfilUtilizator />}
+
           </div>
 
         </div>

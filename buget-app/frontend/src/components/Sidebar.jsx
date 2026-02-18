@@ -17,6 +17,7 @@ export default function Sidebar({
         { key: "diagrama", label: "Diagramă luna în curs" },
         { key: "fonduri", label: "Fonduri investiții" },
         // { key: "grafice-fonduri", label: "Grafice Fonduri" },
+        { key: "realizari", label: "Realizări" },
     ];
 
     if (isAdmin) {
