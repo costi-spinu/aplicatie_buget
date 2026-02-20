@@ -326,7 +326,7 @@ def miscare_fond(request):
     )
 
 
-@api_view(["PUT", "DELETE"])
+@api_view(["PUT", "DELETE", "POST"])
 @permission_classes([IsAuthenticated])
 def miscare_fond_detail(request, pk):
     user_ids = get_connected_user_ids(request.user)
@@ -338,7 +338,12 @@ def miscare_fond_detail(request, pk):
             {"detail": "Mișcarea nu există."}, status=status.HTTP_404_NOT_FOUND
         )
 
-    if request.method == "DELETE":
+    should_delete = request.method == "DELETE" or (
+        request.method == "POST"
+        and str(request.data.get("action", "")).lower() == "delete"
+    )
+
+    if should_delete:
         miscare.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
