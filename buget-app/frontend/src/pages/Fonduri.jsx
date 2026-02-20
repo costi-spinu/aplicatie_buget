@@ -23,6 +23,8 @@ export default function Fonduri() {
     const [observatii, setObservatii] = useState("");
     const [msg, setMsg] = useState(null);
     const [editId, setEditId] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isDeletingId, setIsDeletingId] = useState(null);
 
     const [miscari, setMiscari] = useState([]);
     const [totalEur, setTotalEur] = useState(0);
@@ -56,16 +58,20 @@ export default function Fonduri() {
         e.preventDefault();
         setMsg(null);
 
-        const payload = { tip, rubrica };
-        if (sumaEur) payload.suma_eur = Number(sumaEur);
-        if (sumaRon) payload.suma_ron = Number(sumaRon);
+        const payload = {
+            tip,
+            rubrica,
+            suma_eur: sumaEur === "" ? null : Number(sumaEur),
+            suma_ron: sumaRon === "" ? null : Number(sumaRon),
+        };
         if (observatii) payload.observatii = observatii;
 
-        if (!payload.suma_eur && !payload.suma_ron) {
+        if (payload.suma_eur === null && payload.suma_ron === null) {
             setMsg("Introdu o sumă în EUR sau RON");
             return;
         }
 
+        setIsSaving(true);
         try {
             if (editId) {
                 await api.put(`fonduri/miscare/${editId}/`, payload);
@@ -78,7 +84,12 @@ export default function Fonduri() {
             resetForm();
             await loadMiscari();
         } catch (err) {
-            setMsg("❌ Eroare la salvare");
+            const backendMsg = err?.response?.data?.detail
+                || err?.response?.data?.non_field_errors?.[0]
+                || (typeof err?.response?.data === "string" ? err.response.data : null);
+            setMsg(`❌ Eroare la salvare${backendMsg ? `: ${backendMsg}` : ""}`);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -95,6 +106,7 @@ export default function Fonduri() {
     const stergeMiscare = async (id) => {
         if (!window.confirm("Sigur ștergi această mișcare?")) return;
 
+        setIsDeletingId(id);
         try {
             await api.delete(`fonduri/miscare/${id}/`);
             setMsg("✔ Mișcare ștearsă");
@@ -102,8 +114,12 @@ export default function Fonduri() {
                 resetForm();
             }
             await loadMiscari();
-        } catch {
-            setMsg("❌ Eroare la ștergere");
+        } catch (err) {
+            const backendMsg = err?.response?.data?.detail
+                || (typeof err?.response?.data === "string" ? err.response.data : null);
+            setMsg(`❌ Eroare la ștergere${backendMsg ? `: ${backendMsg}` : ""}`);
+        } finally {
+            setIsDeletingId(null);
         }
     };
 
@@ -211,7 +227,7 @@ export default function Fonduri() {
                     />
 
                     <div style={{ display: "flex", gap: 10 }}>
-                        <button style={styles.blueButton}>
+                        <button style={styles.blueButton} disabled={isSaving}>
                             {editId ? "💾 Salvează modificările" : "💾 Salvează"}
                         </button>
                         {editId && (
@@ -292,7 +308,14 @@ export default function Fonduri() {
                                     </div>
                                     <div style={{ marginTop: 6, display: "flex", gap: 10, justifyContent: "flex-end" }}>
                                         <button type="button" style={localStyles.editBtn} onClick={() => startEdit(m)}>Edit</button>
-                                        <button type="button" style={styles.deleteBtn} onClick={() => stergeMiscare(m.id)}>Șterge</button>
+                                        <button
+                                            type="button"
+                                            style={styles.deleteBtn}
+                                            disabled={isDeletingId === m.id}
+                                            onClick={() => stergeMiscare(m.id)}
+                                        >
+                                            {isDeletingId === m.id ? "Se șterge..." : "Șterge"}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
