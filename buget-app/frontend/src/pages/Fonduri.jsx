@@ -15,6 +15,39 @@ const RUBRICI = [
 const getRubricaLabel = (value) => RUBRICI.find((r) => r.value === value)?.label || value;
 const formatAmount = (value) => Number(value || 0).toFixed(2);
 
+const extractApiErrorMessage = (err, fallbackMessage) => {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+
+    if (typeof data === "string") {
+        const normalized = data.trim().toLowerCase();
+        const looksLikeHtml = normalized.startsWith("<!doctype") || normalized.startsWith("<html");
+        if (looksLikeHtml) {
+            if (status === 404) return `${fallbackMessage}: resursa nu a fost găsită (404).`;
+            return `${fallbackMessage}: serverul a răspuns cu o pagină invalidă.`;
+        }
+        return `${fallbackMessage}: ${data}`;
+    }
+
+    const backendMsg = data?.detail || data?.non_field_errors?.[0];
+    if (backendMsg) return `${fallbackMessage}: ${backendMsg}`;
+
+    if (status === 404) return `${fallbackMessage}: resursa nu a fost găsită (404).`;
+    return fallbackMessage;
+};
+
+const withOptionalTrailingSlashFallback = async (requestFn, endpoint) => {
+    try {
+        return await requestFn(endpoint);
+    } catch (err) {
+        const status = err?.response?.status;
+        const canRetry = status === 404 && endpoint.endsWith("/");
+        if (!canRetry) throw err;
+        const fallbackEndpoint = endpoint.slice(0, -1);
+        return requestFn(fallbackEndpoint);
+    }
+};
+
 export default function Fonduri() {
     const [tip, setTip] = useState("adauga");
     const [rubrica, setRubrica] = useState("fond_urgenta");
@@ -74,7 +107,10 @@ export default function Fonduri() {
         setIsSaving(true);
         try {
             if (editId) {
-                await api.put(`fonduri/miscare/${editId}/`, payload);
+                await withOptionalTrailingSlashFallback(
+                    (endpoint) => api.put(endpoint, payload),
+                    `fonduri/miscare/${editId}/`,
+                );
                 setMsg("✔ Mișcare actualizată");
             } else {
                 await api.post("fonduri/miscare/", payload);
@@ -84,10 +120,7 @@ export default function Fonduri() {
             resetForm();
             await loadMiscari();
         } catch (err) {
-            const backendMsg = err?.response?.data?.detail
-                || err?.response?.data?.non_field_errors?.[0]
-                || (typeof err?.response?.data === "string" ? err.response.data : null);
-            setMsg(`❌ Eroare la salvare${backendMsg ? `: ${backendMsg}` : ""}`);
+            setMsg(`❌ ${extractApiErrorMessage(err, "Eroare la salvare")}`);
         } finally {
             setIsSaving(false);
         }
@@ -108,16 +141,17 @@ export default function Fonduri() {
 
         setIsDeletingId(id);
         try {
-            await api.delete(`fonduri/miscare/${id}/`);
+            await withOptionalTrailingSlashFallback(
+                (endpoint) => api.delete(endpoint),
+                `fonduri/miscare/${id}/`,
+            );
             setMsg("✔ Mișcare ștearsă");
             if (editId === id) {
                 resetForm();
             }
             await loadMiscari();
         } catch (err) {
-            const backendMsg = err?.response?.data?.detail
-                || (typeof err?.response?.data === "string" ? err.response.data : null);
-            setMsg(`❌ Eroare la ștergere${backendMsg ? `: ${backendMsg}` : ""}`);
+            setMsg(`❌ ${extractApiErrorMessage(err, "Eroare la ștergere")}`);
         } finally {
             setIsDeletingId(null);
         }
