@@ -72,6 +72,11 @@ urlpatterns = [
     path("fonduri/", fonduri, name="fonduri"),
     path("fonduri/miscare/", miscare_fond, name="miscare-fond"),
     path("fonduri/miscare/<int:pk>/", miscare_fond_detail, name="miscare-fond-detail"),
+    path("fonduri/miscare/<int:pk>", miscare_fond_detail),
+    path("fonduri/miscari/<int:pk>/", miscare_fond_detail),
+    path("fonduri/miscari/<int:pk>", miscare_fond_detail),
+    path("fonduri/<int:pk>/", miscare_fond_detail),
+    path("fonduri/<int:pk>", miscare_fond_detail),
     path("fonduri/grafic/", fonduri_grafic, name="fonduri-grafic"),
     path(
         "fonduri/grafic/timeline/",
