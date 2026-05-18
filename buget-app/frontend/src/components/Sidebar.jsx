@@ -4,8 +4,6 @@ export default function Sidebar({
     setPage,
     isAdmin,
     logout,
-    theme,
-    setTheme,
     user, // 🔥 primim user-ul
 }) {
     const [active, setActive] = useState(null);
@@ -14,7 +12,6 @@ export default function Sidebar({
         { key: "venit", label: "Venit / Istoric venit" },
         { key: "cheltuieli", label: "Cheltuieli" },
         { key: "economii", label: "Economii / Vacanță" },
-        { key: "diagrama", label: "Diagramă luna în curs" },
         { key: "fonduri", label: "Fonduri investiții" },
         // { key: "grafice-fonduri", label: "Grafice Fonduri" },
         { key: "realizari", label: "Realizări" },
@@ -73,19 +70,6 @@ export default function Sidebar({
 
             {/* SETTINGS CARD */}
             <div style={styles.card}>
-                <div
-                    onClick={() =>
-                        setTheme(theme === "dark" ? "light" : "dark")
-                    }
-                    style={styles.row}
-                >
-                    <span>
-                        {theme === "dark"
-                            ? "☀️ Light Mode"
-                            : "🌙 Dark Mode"}
-                    </span>
-                </div>
-
                 <div
                     onClick={logout}
                     style={{

@@ -9,6 +9,9 @@ from .models import (
     CheltuialaVariabila,
     EconomieVacanta,
     EconomieLunara,
+    RealizariTarget,
+    UserProfile,
+    SalarySchedule,
 )
 
 
@@ -31,6 +34,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data["email"],
             password=validated_data["password"],
         )
+        UserProfile.objects.get_or_create(user=user)
         return user
 
 
@@ -40,7 +44,7 @@ class VenitSerializer(serializers.ModelSerializer):
     class Meta:
         model = Venit
         exclude = ("user",)
-        read_only_fields = ("created_at", "updated_at")
+        read_only_fields = ("created_at", "updated_at", "salary_schedule")
 
 
 class CheltuialaFixaSerializer(serializers.ModelSerializer):
@@ -94,28 +98,6 @@ class FondSerializer(serializers.ModelSerializer):
         read_only_fields = ("data",)
 
 
-# class MiscareFondSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = MiscareFond
-#         exclude = ("user",)
-
-#     def validate(self, data):
-#         if not data.get("suma_eur") and not data.get("suma_ron"):
-#             raise serializers.ValidationError("Trebuie completata suma EUR sau RON")
-#         return data
-
-
-# class MiscareFondSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = MiscareFond
-#         exclude = ("user",)
-
-#     def validate(self, data):
-#         if not data.get("suma_eur") and not data.get("suma_ron"):
-#             raise serializers.ValidationError("Trebuie completată suma în EUR sau RON")
-#         return data
-
-
 class MiscareFondSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
 
@@ -127,3 +109,44 @@ class MiscareFondSerializer(serializers.ModelSerializer):
         if not data.get("suma_eur") and not data.get("suma_ron"):
             raise serializers.ValidationError("Trebuie completată suma în EUR sau RON")
         return data
+
+
+class RealizariTargetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RealizariTarget
+        fields = ("id", "luna", "fixed_target", "category_targets", "updated_at")
+        read_only_fields = ("id", "updated_at")
+
+
+class SalaryScheduleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SalarySchedule
+        fields = ("id", "zi", "suma", "moneda", "activ")
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    salary_schedules = SalaryScheduleSerializer(many=True, source="user.salary_schedules")
+
+    class Meta:
+        model = UserProfile
+        fields = (
+            "poza",
+            "data_nasterii",
+            "ocupatia",
+            "venit_estimat",
+            "venit_estimat_lunar",
+            "salary_schedules",
+        )
+
+    def update(self, instance, validated_data):
+        schedules_data = validated_data.pop("user", {}).pop("salary_schedules", None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if schedules_data is not None:
+            instance.user.salary_schedules.all().delete()
+            for item in schedules_data:
+                SalarySchedule.objects.create(user=instance.user, **item)
+
+        return instance

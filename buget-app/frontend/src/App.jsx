@@ -10,10 +10,8 @@ import Venit from "./pages/Venit";
 import Cheltuieli from "./pages/Cheltuieli";
 import Economii from "./pages/Economii";
 import AdminPanel from "./pages/AdminPanel";
-import DiagramaLunara from "./pages/DiagramaLunara";
 import Sidebar from "./components/Sidebar";
 import Fonduri from "./pages/Fonduri";
-import GraficeFonduri from "./pages/GraficeFonduri";
 import ProfilUtilizator from "./pages/ProfilUtilizator";
 import Realizari from "./pages/Realizari";
 
@@ -25,20 +23,9 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [authView, setAuthView] = useState("home");
 
-  const [theme, setTheme] = useState(
-    localStorage.getItem("theme") || "light"
-  );
 
   const loggedIn = Boolean(localStorage.getItem("access"));
 
-  // THEME
-  useEffect(() => {
-    const root = document.documentElement;
-    theme === "dark"
-      ? root.classList.add("dark")
-      : root.classList.remove("dark");
-    localStorage.setItem("theme", theme);
-  }, [theme]);
 
   // AUTH CHECK
   useEffect(() => {
@@ -122,8 +109,6 @@ function App() {
           setPage={handleOpenPage}
           isAdmin={isAdmin}
           logout={logout}
-          theme={theme}
-          setTheme={setTheme}
           user={user}   // 🔥 ADAUGĂ ASTA
         />
       )}
@@ -143,7 +128,6 @@ function App() {
             {activePage === "venit" && <Venit />}
             {activePage === "cheltuieli" && <Cheltuieli />}
             {activePage === "economii" && <Economii />}
-            {activePage === "diagrama" && <DiagramaLunara />}
             {activePage === "fonduri" && <Fonduri />}
             {/* {activePage === "grafice-fonduri" && <GraficeFonduri />} */}
             {activePage === "realizari" && <Realizari />}

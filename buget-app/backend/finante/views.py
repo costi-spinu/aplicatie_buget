@@ -1,7 +1,11 @@
 from datetime import date, timedelta
+import secrets
 from django.db.models.functions import TruncDate
 from django.db.models import Sum, Q
 from django.contrib.auth.models import User
+from django.conf import settings
+from django.core.mail import send_mail
+from django.utils import timezone
 import calendar
 from calendar import monthrange
 
@@ -9,9 +13,13 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 
 from .models import (
+    EmailChangeRequest,
+    RealizariTarget,
+    SalarySchedule,
+    UserProfile,
     Venit,
     CheltuialaFixa,
     CheltuialaVariabila,
@@ -31,6 +39,8 @@ from .serializers import (
     EconomieLunaraSerializer,
     MiscareFondSerializer,
     FondSerializer,
+    RealizariTargetSerializer,
+    UserProfileSerializer,
 )
 
 from .utils import get_luna_bugetara
@@ -52,6 +62,15 @@ class VenitViewSet(BaseViewSet):
     queryset = Venit.objects.all()
     serializer_class = VenitSerializer
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        archived = self.request.query_params.get("archived")
+        if archived == "1":
+            return queryset[10:]
+        if archived == "0":
+            return queryset[:10]
+        return queryset
+
 
 class CheltuialaFixaViewSet(BaseViewSet):
     queryset = CheltuialaFixa.objects.all()
@@ -67,6 +86,140 @@ class EconomieVacantaViewSet(BaseViewSet):
     queryset = EconomieVacanta.objects.all()
     serializer_class = EconomieVacantaSerializer
 
+
+
+def sync_salary_income(user):
+    today = timezone.localdate()
+    for schedule in user.salary_schedules.filter(activ=True):
+        target_day = min(schedule.zi, calendar.monthrange(today.year, today.month)[1])
+        income_date = date(today.year, today.month, target_day)
+        Venit.objects.update_or_create(
+            user=user,
+            salary_schedule=schedule,
+            data=income_date,
+            defaults={
+                "suma": schedule.suma,
+                "moneda": schedule.moneda,
+                "sursa": "salariu",
+            },
+        )
+
+
+def serialize_profile_response(user):
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    sync_salary_income(user)
+    data = UserProfileSerializer(profile).data
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "profile": data,
+    }
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def profile(request):
+    profile_obj, _ = UserProfile.objects.get_or_create(user=request.user)
+
+    if request.method == "GET":
+        return Response(serialize_profile_response(request.user))
+
+    username = request.data.get("username")
+    if username:
+        exists = User.objects.exclude(id=request.user.id).filter(username=username).exists()
+        if exists:
+            return Response({"username": "Acest username există deja."}, status=400)
+        request.user.username = username
+        request.user.save(update_fields=["username"])
+
+    serializer = UserProfileSerializer(profile_obj, data=request.data.get("profile", {}), partial=True)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer.save()
+    sync_salary_income(request.user)
+    return Response(serialize_profile_response(request.user))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    old_password = request.data.get("old_password", "")
+    new_password = request.data.get("new_password", "")
+    confirm_password = request.data.get("confirm_password", "")
+
+    if not request.user.check_password(old_password):
+        return Response({"old_password": "Parola veche este incorectă."}, status=400)
+    if new_password != confirm_password:
+        return Response({"confirm_password": "Parolele noi nu coincid."}, status=400)
+    if len(new_password) < 6:
+        return Response({"new_password": "Parola nouă trebuie să aibă minimum 6 caractere."}, status=400)
+
+    request.user.set_password(new_password)
+    request.user.save(update_fields=["password"])
+    return Response({"success": True})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def request_email_change(request):
+    new_email = request.data.get("new_email", "").strip().lower()
+    password = request.data.get("password", "")
+
+    if not request.user.check_password(password):
+        return Response({"password": "Parola este incorectă."}, status=400)
+    if not new_email:
+        return Response({"new_email": "Email-ul nou este obligatoriu."}, status=400)
+    if User.objects.exclude(id=request.user.id).filter(email__iexact=new_email).exists():
+        return Response({"new_email": "Email-ul este deja folosit."}, status=400)
+
+    code = secrets.token_urlsafe(24)
+    EmailChangeRequest.objects.create(user=request.user, new_email=new_email, code=code)
+    link = request.build_absolute_uri(f"/api/email-change/confirm/{code}/")
+
+    send_mail(
+        "Confirmare modificare email",
+        f"Codul tău de confirmare este: {code}\nLink confirmare: {link}",
+        getattr(settings, "DEFAULT_FROM_EMAIL", settings.EMAIL_HOST_USER),
+        [new_email],
+        fail_silently=True,
+    )
+
+    return Response({"success": True, "message": "Am trimis linkul și codul de confirmare pe emailul nou."})
+
+
+@api_view(["POST", "GET"])
+@permission_classes([AllowAny])
+def confirm_email_change(request, code=None):
+    provided_code = code or request.data.get("code")
+    try:
+        change = EmailChangeRequest.objects.get(code=provided_code, used_at__isnull=True)
+    except EmailChangeRequest.DoesNotExist:
+        return Response({"code": "Cod invalid sau deja folosit."}, status=400)
+
+    change.user.email = change.new_email
+    change.user.save(update_fields=["email"])
+    change.used_at = timezone.now()
+    change.save(update_fields=["used_at"])
+    return Response({"success": True, "email": change.user.email})
+
+
+class RealizariTargetViewSet(BaseViewSet):
+    queryset = RealizariTarget.objects.all()
+    serializer_class = RealizariTargetSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        luna = request.data.get("luna")
+        instance = RealizariTarget.objects.filter(user=request.user, luna=luna).first()
+        if instance:
+            serializer = self.get_serializer(instance, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            return Response(serializer.data)
+        return super().create(request, *args, **kwargs)
 
 class RegisterView(APIView):
     permission_classes = []
@@ -139,6 +292,7 @@ def me(request):
             "id": user.id,
             "username": user.username,
             "email": user.email,
+            "profile": serialize_profile_response(user).get("profile"),
             "is_admin": user.is_staff or user.is_superuser,
         }
     )
