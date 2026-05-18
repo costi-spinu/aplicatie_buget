@@ -46,7 +46,7 @@ export default function Venit() {
     const [ronToEurRate, setRonToEurRate] = useState(RON_TO_EUR_FALLBACK);
     const [rateSource, setRateSource] = useState("fallback");
 
-    const [statusRows, setStatusRows] = useState([]);
+    const [olderVenituri, setOlderVenituri] = useState([]);
 
     const cycleRange = useMemo(() => getCurrentCycleRange(), []);
 
@@ -89,29 +89,23 @@ export default function Venit() {
 
     const loadData = async () => {
         try {
-            const [list, meRes] = await Promise.all([api.get("venituri/"), api.get("me/")]);
-            setVenituri(list.data);
-            setTotal(calculateCurrentCycleTotal(list.data));
+            const [latest, older, all, meRes] = await Promise.all([
+                api.get("venituri/?archived=0"),
+                api.get("venituri/?archived=1"),
+                api.get("venituri/"),
+                api.get("me/"),
+            ]);
+            setVenituri(latest.data || []);
+            setOlderVenituri(older.data || []);
+            setTotal(calculateCurrentCycleTotal(all.data || []));
             setCurrentUser(meRes.data);
         } catch (err) {
             console.error("Eroare venit:", err);
         }
     };
 
-    const loadStatusData = async () => {
-        try {
-            const res = await api.get("venit/status/");
-            const labels = [...res.data.labels].reverse();
-            const dataValues = [...res.data.data].reverse();
-            setStatusRows(labels.map((label, idx) => ({ label, value: Number(dataValues[idx]) })));
-        } catch (error) {
-            console.error("Eroare status venit:", error);
-        }
-    };
-
     useEffect(() => {
         fetchExchangeRate();
-        loadStatusData();
     }, []);
 
     useEffect(() => {
@@ -138,7 +132,6 @@ export default function Venit() {
 
             resetForm();
             loadData();
-            loadStatusData();
         } catch {
             setMsg("❌ Eroare la adăugare");
         }
@@ -157,7 +150,6 @@ export default function Venit() {
 
             resetForm();
             loadData();
-            loadStatusData();
         } catch {
             setMsg("❌ Eroare la modificare");
         }
@@ -169,7 +161,6 @@ export default function Venit() {
         try {
             await api.delete(`venituri/${id}/`);
             loadData();
-            loadStatusData();
         } catch {
             setMsg("❌ Eroare la ștergere");
         }
@@ -179,7 +170,26 @@ export default function Venit() {
         ? `≈ ${round2(Number(suma) * ronToEurRate)} EUR`
         : null;
 
-    const totalGeneralStatus = statusRows.reduce((acc, row) => acc + row.value, 0);
+    const exportExcel = () => {
+        const header = "Data,Sumă,Monedă,Utilizator,Sursă\n";
+        const rows = olderVenituri.map((v) => `${v.data},${v.suma},${v.moneda},${v.username || currentUser?.username || ""},${v.sursa || "manual"}`).join("\n");
+        const blob = new Blob([header + rows], { type: "application/vnd.ms-excel;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "venituri-vechi.xls";
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const exportPdf = () => {
+        const rows = olderVenituri.map((v) => `<tr><td>${v.data}</td><td>${v.suma}</td><td>${v.moneda}</td><td>${v.username || currentUser?.username || ""}</td></tr>`).join("");
+        const win = window.open("", "_blank");
+        win.document.write(`<html><head><title>Venituri vechi</title></head><body><h1>Venituri vechi</h1><table border="1" cellspacing="0" cellpadding="6"><thead><tr><th>Data</th><th>Sumă</th><th>Monedă</th><th>Utilizator</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+        win.document.close();
+        win.print();
+    };
+
 
     return (
         <div style={styles.container}>
@@ -188,7 +198,7 @@ export default function Venit() {
             <div style={localStyles.segmentWrapper}>
                 <div style={{ ...localStyles.segmentSlider, left: activeTab === "form" ? "4px" : "50%" }} />
                 <button style={localStyles.segmentBtn} onClick={() => setActiveTab("form")}>Gestionare venit</button>
-                <button style={localStyles.segmentBtn} onClick={() => setActiveTab("history")}>Istoric venit</button>
+                <button style={localStyles.segmentBtn} onClick={() => setActiveTab("older")}>Sume mai vechi</button>
             </div>
 
             {activeTab === "form" && (
@@ -212,7 +222,7 @@ export default function Venit() {
 
                         <select style={styles.input} value={moneda} onChange={(e) => setMoneda(e.target.value)}>
                             <option value="EUR">EUR</option>
-                            <option value="RON">RON</option>
+                            <option value="RON">RON / LEI</option>
                         </select>
 
                         {previewEur && <div style={{ marginBottom: 12, fontSize: 13, color: "#636366" }}>Conversie automată: {previewEur}</div>}
@@ -232,7 +242,7 @@ export default function Venit() {
                     )}
 
                     <div style={styles.card}>
-                        <h3 style={styles.sectionTitle}>Istoric înregistrări</h3>
+                        <h3 style={styles.sectionTitle}>Ultimele 10 înregistrări</h3>
                         {venituri.map((v) => (
                             <div
                                 key={v.id}
@@ -255,38 +265,29 @@ export default function Venit() {
                 </>
             )}
 
-            {activeTab === "history" && (
+            {activeTab === "older" && (
                 <div style={styles.card}>
-                    <h3 style={styles.sectionTitle}>📋 Istoric venit</h3>
-
-                    <div style={localStyles.tableWrapper}>
-                        <table style={localStyles.table}>
-                            <thead>
-                                <tr>
-                                    <th style={localStyles.th}>Luna</th>
-                                    <th style={{ ...localStyles.th, textAlign: "right" }}>Venit (EUR)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {statusRows.map((row, idx) => (
-                                    <tr key={row.label} style={idx % 2 === 0 ? localStyles.rowEven : localStyles.rowOdd}>
-                                        <td style={localStyles.td}>{row.label}</td>
-                                        <td style={{ ...localStyles.td, textAlign: "right", fontWeight: 600, color: "#1C1C1E" }}>
-                                            {row.value.toLocaleString("ro-RO")} EUR
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td style={localStyles.totalCell}>TOTAL GENERAL</td>
-                                    <td style={{ ...localStyles.totalCell, textAlign: "right", color: "#34C759" }}>
-                                        {totalGeneralStatus.toLocaleString("ro-RO")} EUR
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    <h3 style={styles.sectionTitle}>📦 Sume mai vechi introduse</h3>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                        <button style={styles.blueButton} onClick={exportExcel}>⬇️ Excel</button>
+                        <button style={styles.greenButton} onClick={exportPdf}>⬇️ PDF</button>
                     </div>
+                    {olderVenituri.length === 0 && <div style={styles.message}>Nu există încă sume mai vechi.</div>}
+                    {olderVenituri.map((v) => (
+                        <div
+                            key={v.id}
+                            style={{ ...styles.row, ...(editId === v.id ? styles.activeRow : {}) }}
+                            onClick={() => { setEditId(v.id); setSuma(v.suma); setMoneda(v.moneda); setData(v.data); setActiveTab("form"); }}
+                        >
+                            <div>
+                                <div style={styles.amount}>{v.suma} {v.moneda}</div>
+                                <div style={{ fontSize: 12, opacity: 0.7 }}>👤 {v.username || currentUser?.username}</div>
+                                <div style={styles.date}>{v.data}</div>
+                                {v.updated_at && <div style={styles.updated}>ultima modificare: {formatDateTime(v.updated_at)}</div>}
+                            </div>
+                            <button style={styles.deleteBtn} onClick={(e) => { e.stopPropagation(); stergeVenit(v.id); }}>🗑</button>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

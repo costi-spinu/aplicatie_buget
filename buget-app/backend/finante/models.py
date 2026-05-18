@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils.timezone import now
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Moneda(models.TextChoices):
@@ -41,6 +42,14 @@ class Venit(models.Model):
     data = models.DateField(default=timezone.localdate)  # data venitului
     created_at = models.DateTimeField(auto_now_add=True)  # 👈 momentul adăugării
     updated_at = models.DateTimeField(auto_now=True)  # ultima modificare
+    sursa = models.CharField(max_length=30, blank=True, default="manual")
+    salary_schedule = models.ForeignKey(
+        "SalarySchedule",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="venituri_generate",
+    )
 
     class Meta:
         ordering = ["-created_at"]  # 👈 cheia problemei
@@ -233,3 +242,81 @@ class UserBridge(models.Model):
     )
     accepted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class RealizariTarget(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="realizari_targets",
+    )
+    luna = models.CharField(max_length=7)
+    fixed_target = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    category_targets = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "luna")
+        ordering = ["-luna"]
+
+    def __str__(self):
+        return f"{self.user.username} | {self.luna}"
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="profile",
+    )
+    poza = models.TextField(blank=True, default="")
+    data_nasterii = models.DateField(null=True, blank=True)
+    ocupatia = models.CharField(max_length=120, blank=True, default="")
+    venit_estimat = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    venit_estimat_lunar = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Profil {self.user.username}"
+
+
+class SalarySchedule(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="salary_schedules",
+    )
+    zi = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(31)]
+    )
+    suma = models.DecimalField(max_digits=10, decimal_places=2)
+    moneda = models.CharField(max_length=3, choices=Moneda.choices, default=Moneda.RON)
+    activ = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["zi", "id"]
+
+    def __str__(self):
+        return f"{self.user.username} | ziua {self.zi} | {self.suma} {self.moneda}"
+
+
+class EmailChangeRequest(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="email_change_requests",
+    )
+    new_email = models.EmailField()
+    code = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.new_email}"

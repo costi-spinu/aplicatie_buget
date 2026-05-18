@@ -38,10 +38,16 @@ from .views import (
     accept_bridge,
     fonduri_grafic_timeline_extended,
     FondViewSet,
+    RealizariTargetViewSet,
+    profile,
+    change_password,
+    request_email_change,
+    confirm_email_change,
 )
 
 router = DefaultRouter()
 router.register(r"venituri", VenitViewSet, basename="venituri")
+router.register(r"realizari-targets", RealizariTargetViewSet, basename="realizari-targets")
 router.register(r"cheltuieli-fixe", CheltuialaFixaViewSet, basename="cheltuieli-fixe")
 router.register(
     r"cheltuieli-variabile",
@@ -58,6 +64,11 @@ urlpatterns = [
     # auth
     path("register/", RegisterView.as_view(), name="register"),
     path("me/", me, name="me"),
+    path("profile/", profile, name="profile"),
+    path("profile/password/", change_password, name="change-password"),
+    path("email-change/request/", request_email_change, name="email-change-request"),
+    path("email-change/confirm/", confirm_email_change, name="email-change-confirm"),
+    path("email-change/confirm/<str:code>/", confirm_email_change, name="email-change-confirm-link"),
     # statistici / calcule
     path("venit/total/", venit_total_lunar, name="venit-total"),
     path("venit/status/", venit_status_lunar, name="venit-status"),
